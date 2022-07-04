@@ -26,7 +26,6 @@ def disc_bool(x):
         return False
 
 def crawling_cafe_n_blog(query, cafe=True, blog=True):
-    err_urls = []
     dir_driver = chromedriver_autoinstaller.install()
     browser = Chrome(dir_driver)
     browser.implicitly_wait(15)
@@ -55,35 +54,30 @@ def crawling_cafe_n_blog(query, cafe=True, blog=True):
         contexts = []
         urls2 = []
         for url in tqdm(urls):
+            browser.get(url)
+            browser.switch_to.frame('cafe_main')
             try:
-                browser.get(url)
-                browser.switch_to.frame('cafe_main')
-                try:
-                    titles.append(str(browser.find_element(By.CSS_SELECTOR, '.title_text').text))
-                except:
-                    titles.append("no_title")
-
-                try:
-                    dates.append(str(browser.find_element(By.CSS_SELECTOR, '.article_info .date').text))
-                except:
-                    dates.append("no_date")
-
-                try:
-                    contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-module.se-module-text, .ContentRenderer p, .ContentRenderer div')))))
-                except:
-                    contexts.append("no_context")
-
-                try:
-                    urls2.append(str(url))
-                except:
-                    urls2.append("no_url")
+                titles.append(str(browser.find_element(By.CSS_SELECTOR, '.title_text').text))
             except:
-                err_urls.append(str(url))
+                titles.append("no_title")
+
+            try:
+                dates.append(str(browser.find_element(By.CSS_SELECTOR, '.article_info .date').text))
+            except:
+                dates.append("no_date")
+
+            try:
+                contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-module.se-module-text, .ContentRenderer p, .ContentRenderer div')))))
+            except:
+                contexts.append("no_context")
+
+            try:
+                urls2.append(str(url))
+            except:
+                urls2.append("no_url")
 
         # 카페 크롤링 내용 데이터프레임화 및 저장
         cafes = ['naver cafe'] * len(titles)
-        err_cafe_len = len(err_urls)
-        print(f'Naver Cafe Error Rate:\t {err_cafe_len} / {len(titles)}')
         pd.DataFrame({'url':urls2, 'type':cafes, 'title':titles, 'date':dates, 'context':contexts}).to_csv(f'naver_cafe_{query}.csv', index=False)
         print(f'"naver_cafe_{query}.csv" is Saved!')
 
@@ -111,61 +105,31 @@ def crawling_cafe_n_blog(query, cafe=True, blog=True):
         contexts = []
         urls2 = []
         for url in tqdm(urls):
+            browser.get(url)
+            browser.switch_to.frame('mainFrame')
             try:
-                browser.get(url)
-                browser.switch_to.frame('mainFrame')
-                try:
-                    titles.append(str(browser.find_element(By.CSS_SELECTOR, '.pcol1').text))
-                except:
-                    titles.append("no_title")
-                try:
-                    dates.append(str(browser.find_element(By.CSS_SELECTOR, '.blog2_container .se_publishDate.pcol2, .date.fil5.pcol2._postAddDate').text))
-                except:
-                    dates.append("no_date")
-                    
-                try:
-                    contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-main-container, #postViewArea, .se_textarea')))))
-                except:
-                    contexts.append("no_contexts")
-                    
-                try:
-                    urls2.append(str(url))
-                except:
-                    urls2.append("no_url")
-                
+                titles.append(str(browser.find_element(By.CSS_SELECTOR, '.pcol1').text))
             except:
-                err_urls.append(str(url))
+                titles.append("no_title")
+            try:
+                dates.append(str(browser.find_element(By.CSS_SELECTOR, '.blog2_container .se_publishDate.pcol2, .date.fil5.pcol2._postAddDate').text))
+            except:
+                dates.append("no_date")
+                
+            try:
+                contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-main-container, #postViewArea, .se_textarea')))))
+            except:
+                contexts.append("no_contexts")
+                
+            try:
+                urls2.append(str(url))
+            except:
+                urls2.append("no_url")
 
         # 블로그 크롤링 내용 데이터 프레임화 및 저장
         blogs = ['naver blog'] * len(titles)
-        print(f'Naver Blog Error Rate:\t {len(err_urls) - err_cafe_len} / {len(titles)}')
         pd.DataFrame({'url':urls2, 'type':blogs, 'title':titles, 'date':dates, 'context':contexts}).to_csv(f'naver_blog_{query}.csv', index=False)
         print(f'"naver_blog_{query}.csv" is Saved!')
-
-    # 오류가 발생한 URL 저장
-    type_ = []
-    if cafe:
-        if err_cafe_len >0:
-            err_cafe_lst = ['naver cafe'] * err_cafe_len
-            type_ += err_cafe_lst
-        if blog:
-            if (len(err_urls) - err_cafe_len) > 0:
-                err_blog_lst = ['naver blog'] * (len(err_urls) - err_cafe_len)
-                type_ += err_blog_lst
-                
-                pd.DataFrame({'type': type_, 'urls': err_urls}).to_csv('error_url.csv', index=False)
-                print('Error URL DataFrame Saved!')
-            else:
-                print('No Error URL')
-    if blog:
-        if len(err_urls) > 0:
-            err_blog_lst = ['naver blog'] * (len(err_urls))
-            type_ += err_blog_lst
-
-            pd.DataFrame({'type': type_, 'urls': err_urls}).to_csv('error_url.csv', index=False)
-            print('Error URL DataFrame Saved!')
-        else:
-            print('No Error URL')
         
 if __name__ == '__main__':
     args = arg_parse()
