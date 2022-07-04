@@ -23,7 +23,12 @@ def crawling_cafe_n_blog(query):
     while True:
         try:
             browser.get(f"https://section.cafe.naver.com/ca-fe/home/search/articles?q={query}&p={i}")
-            urls = urls + list(map(lambda x: x.get_property('href') ,browser.find_elements(By.CSS_SELECTOR, '.ArticleList .article_item .item_subject')))
+            data = browser.find_elements(By.CSS_SELECTOR, '.ArticleList .article_item .item_subject')
+            if i != 1:
+                if titles == list(map(lambda x: x.text, data)):
+                    break
+            titles = list(map(lambda x: x.text, data))
+            urls = urls + list(map(lambda x: x.get_property('href'), data))
             i += 1
         except:
             break
@@ -62,7 +67,12 @@ def crawling_cafe_n_blog(query):
     while True:
         try:
             browser.get(f"https://section.blog.naver.com/Search/Post.naver?pageNo={i}&rangeType=ALL&orderBy=sim&keyword={query}")
-            urls = urls + list(map(lambda x: x.get_property('href') ,browser.find_elements(By.CSS_SELECTOR, '.desc_inner')))
+            data = browser.find_elements(By.CSS_SELECTOR, '.desc_inner')
+            if i != 1:
+                if titles == list(map(lambda x: x.text, data)):
+                    break
+            titles = list(map(lambda x: x.text, data))
+            urls = urls + list(map(lambda x: x.get_property('href'), data))
             i += 1
         except:
             break
@@ -91,12 +101,14 @@ def crawling_cafe_n_blog(query):
     print(f'"naver_blog_{query}.csv" is Saved!')
 
     # 오류가 발생한 URL 저장
+    type_ = []
     if err_cafe_len >0:
         err_cafe_lst = ['naver cafe'] * err_cafe_len
+        type_ += err_cafe_lst
     if len(err_urls) - err_cafe_len:
         err_blog_lst = ['naver blog'] * (len(err_urls) - err_cafe_len)
+        type_ += err_blog_lst
     if len(err_urls) > 0:
-        type_ = err_cafe_lst + err_blog_lst
         pd.DataFrame({'type': type_, 'urls': err_urls}.to_csv('error_url.csv', index=False))
         print('Error URL DataFrame Saved!')
     else:
