@@ -33,6 +33,7 @@ def crawling_cafe_n_blog(query):
     titles = []
     dates = []
     contexts = []
+    urls2 = []
     for url in tqdm(urls):
         try:
             browser.get(url)
@@ -44,6 +45,7 @@ def crawling_cafe_n_blog(query):
             dates.append(browser.find_element(By.CSS_SELECTOR, '.article_info .date').text)
             contexts.append(' '.join(list(map(lambda x: x.text,
                  browser.find_elements(By.CSS_SELECTOR, '.se-module.se-module-text, .ContentRenderer p, .ContentRenderer div')))))
+            urls2.append(url)
         except:
             err_urls.append(url)
 
@@ -51,7 +53,7 @@ def crawling_cafe_n_blog(query):
     cafes = ['naver cafe'] * len(titles)
     err_cafe_len = len(err_urls)
     print(f'Naver Cafe Error Rate:\t {err_cafe_len} / {len(titles)}')
-    pd.DataFrame({'type':cafes, 'title':titles, 'date':dates, 'context':contexts}).to_csv(f'naver_cafe_{query}.csv', index=False)
+    pd.DataFrame({'url':urls2, 'type':cafes, 'title':titles, 'date':dates, 'context':contexts}).to_csv(f'naver_cafe_{query}.csv', index=False)
     print(f'"naver_cafe_{query}.csv" is Saved!')
 
     # 블로그 url 탐색
@@ -70,6 +72,7 @@ def crawling_cafe_n_blog(query):
     titles = []
     dates = []
     contexts = []
+    urls2 = []
     for url in tqdm(urls):
         try:
             browser.get(url)
@@ -77,13 +80,14 @@ def crawling_cafe_n_blog(query):
             titles.append(browser.find_element(By.CSS_SELECTOR, '.pcol1').text)
             dates.append(browser.find_element(By.CSS_SELECTOR, '.blog2_container .se_publishDate.pcol2, .date.fil5.pcol2._postAddDate').text)
             contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-main-container, #postViewArea, .se_textarea')))))
+            urls2.append(url)
         except:
             err_urls.append(url)
 
     # 블로그 크롤링 내용 데이터 프레임화 및 저장
     blogs = ['naver blog'] * len(titles)
     print(f'Naver Cafe Error Rate:\t {len(err_urls) - err_cafe_len} / {len(titles)}')
-    pd.DataFrame({'type':blogs, 'title':titles, 'date':dates, 'context':contexts}).to_csv(f'naver_blog_{query}.csv', index=False)
+    pd.DataFrame({'url':urls2, 'type':blogs, 'title':titles, 'date':dates, 'context':contexts}).to_csv(f'naver_blog_{query}.csv', index=False)
     print(f'"naver_blog_{query}.csv" is Saved!')
 
     # 오류가 발생한 URL 저장
