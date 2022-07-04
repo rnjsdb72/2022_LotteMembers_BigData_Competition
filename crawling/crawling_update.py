@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[190]:
+# In[2]:
 
 
 from tqdm import tqdm
@@ -59,15 +59,26 @@ def crawling_cafe_n_blog(query, cafe=True, blog=True):
                 browser.get(url)
                 browser.switch_to.frame('cafe_main')
                 try:
-                    titles.append(browser.find_element(By.CSS_SELECTOR, '.title_text').text)
+                    titles.append(str(browser.find_element(By.CSS_SELECTOR, '.title_text').text))
                 except:
-                    titles.append('')
-                dates.append(browser.find_element(By.CSS_SELECTOR, '.article_info .date').text)
-                contexts.append(' '.join(list(map(lambda x: x.text,
-                     browser.find_elements(By.CSS_SELECTOR, '.se-module.se-module-text, .ContentRenderer p, .ContentRenderer div')))))
-                urls2.append(url)
+                    titles.append("no_title")
+
+                try:
+                    dates.append(str(browser.find_element(By.CSS_SELECTOR, '.article_info .date').text))
+                except:
+                    dates.append("no_date")
+
+                try:
+                    contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-module.se-module-text, .ContentRenderer p, .ContentRenderer div')))))
+                except:
+                    contexts.append("no_context")
+
+                try:
+                    urls2.append(str(url))
+                except:
+                    urls2.append("no_url")
             except:
-                err_urls.append(url)
+                err_urls.append(str(url))
 
         # 카페 크롤링 내용 데이터프레임화 및 저장
         cafes = ['naver cafe'] * len(titles)
@@ -103,12 +114,27 @@ def crawling_cafe_n_blog(query, cafe=True, blog=True):
             try:
                 browser.get(url)
                 browser.switch_to.frame('mainFrame')
-                titles.append(browser.find_element(By.CSS_SELECTOR, '.pcol1').text)
-                dates.append(browser.find_element(By.CSS_SELECTOR, '.blog2_container .se_publishDate.pcol2, .date.fil5.pcol2._postAddDate').text)
-                contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-main-container, #postViewArea, .se_textarea')))))
-                urls2.append(url)
+                try:
+                    titles.append(str(browser.find_element(By.CSS_SELECTOR, '.pcol1').text))
+                except:
+                    titles.append("no_title")
+                try:
+                    dates.append(str(browser.find_element(By.CSS_SELECTOR, '.blog2_container .se_publishDate.pcol2, .date.fil5.pcol2._postAddDate').text))
+                except:
+                    dates.append("no_date")
+                    
+                try:
+                    contexts.append(' '.join(list(map(lambda x: x.text, browser.find_elements(By.CSS_SELECTOR, '.se-main-container, #postViewArea, .se_textarea')))))
+                except:
+                    contexts.append("no_contexts")
+                    
+                try:
+                    urls2.append(str(url))
+                except:
+                    urls2.append("no_url")
+                
             except:
-                err_urls.append(url)
+                err_urls.append(str(url))
 
         # 블로그 크롤링 내용 데이터 프레임화 및 저장
         blogs = ['naver blog'] * len(titles)
@@ -147,4 +173,10 @@ if __name__ == '__main__':
     arg_blog = disc_bool(args.blog)
     query = input('Enter your search term: \t')
     crawling_cafe_n_blog(query, arg_cafe, arg_blog)
+
+
+# In[ ]:
+
+
+
 
