@@ -15,8 +15,17 @@ def make_df(prod, serv, cust, prod_info):
     trans = trans.sort_values(by=['cust','de_dt' , 'de_hr']).reset_index(drop = True )
     trans['de_dt_hr'] = trans['de_dt'].astype('str') + trans['de_hr'].astype('str')
     trans['de_dt_hr'] = pd.to_datetime( trans['de_dt_hr'] , format = '%Y%m%d%H' )
-    trans['timestamp'] = trans['de_dt_hr'].apply(lambda x : time.mktime(x.timetuple()))
+    trans['timestamp'] = trans['de_dt_hr'].apply(lambda x : time.mktime(x.timetuple())).astype("int32")
+    trans = trans.loc[:,["cust", "pd_c", "timestamp"]]
 
+    id2cust = dict(enumerate(trans["cust"].unique()))
+    id2pd_c = dict(enumerate(trans["pd_c"].unique()))
+    pd_c2id = {j:i for i, j in id2pd_c.items()}
+    cust2id = {j:i for i, j in id2cust.items()}
+    trans["cust"] = trans["cust"].map(lambda x:cust2id[x]+1)
+    trans["pd_c"] = trans["pd_c"].map(lambda x:pd_c2id[x]+1)
+    trans = trans.sort_values(by=['cust', 'timestamp'] ,ascending=True)
+    
     return trans
 
 if __name__ == "__main__":
