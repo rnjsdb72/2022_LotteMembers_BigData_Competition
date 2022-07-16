@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 def make_df(prod, serv, cust, prod_info):
     lst = ['cust', 'rct_no', 'cop_c', 'chnl_dv', 'de_dt', 'de_hr', 'buy_am']
@@ -25,7 +26,10 @@ def make_df(prod, serv, cust, prod_info):
     trans["cust"] = trans["cust"].map(lambda x:cust2id[x]+1)
     trans["pd_c"] = trans["pd_c"].map(lambda x:pd_c2id[x]+1)
     trans = trans.sort_values(by=['cust', 'timestamp'] ,ascending=True)
-    
+    if not os.path.exists("./data"):
+        os.makedirs("./data")
+    trans.drop_duplicates(inplace = True)
+    trans.to_csv("./data/lpay_rec_dataset.txt", header = False, index = False, sep = "\t")
     return trans
 
 if __name__ == "__main__":
