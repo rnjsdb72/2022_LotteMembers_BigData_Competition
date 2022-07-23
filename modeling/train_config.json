@@ -1,0 +1,27 @@
+{
+    "seed":0,
+    "dataset": "lpay_rec_dataset",
+    "train_dir": "TiSASRec",
+    "batch_size": 128,
+
+    "optimizer": {"name": "Adam",
+                  "args": {"lr": 0.001}},
+    "criterion": {"name": "BCEWithLogitsLoss",
+                  "args": {}},
+    "model": {"name": "TiSASRec",
+              "args": {"hidden_units": 50,
+                       "dropout_rate": 0.2,
+                       "time_span": 256,
+                       "maxlen": 50,
+                       "num_blocks": 2,
+                       "num_heads": 1
+                       }},
+    
+    "l2_emb": 0.00005,
+
+    "num_epochs": 201,
+    "device": "cpu",
+    "inference_only": false,
+    "state_dict_path": null,
+    "log_interval": 1
+}
