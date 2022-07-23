@@ -24,9 +24,14 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
         for step in pbar:
             u, seq, time_seq, time_matrix, pos, neg = sampler.next_batch() # tuples to ndarray
             u, seq, pos, neg = np.array(u), np.array(seq), np.array(pos), np.array(neg)
-            time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
+            if args.model.name != "SASRec":
+                time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
 
-            pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
+            if args.model.name == "TiSASRec":
+                pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
+            elif args.model.name == "SASRec":
+                pos_logits, neg_logits = model(u, seq, pos, neg)
+
             pos_labels, neg_labels = torch.ones(pos_logits.shape, device=args.device), torch.zeros(neg_logits.shape, device=args.device)
             # print("\neye ball check raw_logits:"); print(pos_logits); print(neg_logits) # check pos_logits > 0, neg_logits < 0
 
@@ -36,10 +41,11 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
             loss += criterion(neg_logits[indices], neg_labels[indices])
 
             for param in model.item_emb.parameters(): loss += args.l2_emb * torch.norm(param)
-            for param in model.abs_pos_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
-            for param in model.abs_pos_V_emb.parameters(): loss += args.l2_emb * torch.norm(param)
-            for param in model.time_matrix_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
-            for param in model.time_matrix_V_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+            if args.model.name != "SASRec":
+                for param in model.abs_pos_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.abs_pos_V_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.time_matrix_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.time_matrix_V_emb.parameters(): loss += args.l2_emb * torch.norm(param)
 
             loss.backward()
             optimizer.step()
@@ -63,11 +69,14 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
 
             if best_hr < t_test[1]:
                 folder = args.dataset + '_' + args.train_dir + '/results'
-                print(f"Best performance at epoch: {epoch + 1}")
+                print(f"Best performance at epoch: {epoch}")
                 print(f"Save model in {folder}")
                 best_hr = t_test[1]
 
-                fname = 'TiSASRec.epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.epoch={}.pth'
+                if args.model.name == "TiSASRec":
+                    fname = 'TiSASRec.epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.epoch={}.pth'
+                elif args.model.name == "SASRec":
+                    fname = 'SASRec.epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.epoch={}.pth'
                 fname = fname.format(args.num_epochs, args.optimizer.args.lr, args.model.args.num_blocks, 
                                     args.model.args.num_heads, args.model.args.hidden_units, args.model.args.maxlen, epoch)
                 torch.save(model.state_dict(), os.path.join(folder, fname))
@@ -95,15 +104,18 @@ def evaluate(model, dataset, args):
         if len(train[u]) < 1 or len(test[u]) < 1: continue
 
         seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
+        if args.model.name != "SASRec":
+            time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
         idx = args.model.args.maxlen - 1
         
         seq[idx] = valid[u][0][0]
-        time_seq[idx] = valid[u][0][1]
+        if args.model.name != "SASRec":
+            time_seq[idx] = valid[u][0][1]
         idx -= 1
         for i in reversed(train[u]):
             seq[idx] = i[0]
-            time_seq[idx] = i[1]
+            if args.model.name != "SASRec":
+                time_seq[idx] = i[1]
             idx -= 1
             if idx == -1: break
         rated = set(map(lambda x: x[0],train[u]))
@@ -115,10 +127,14 @@ def evaluate(model, dataset, args):
             t = np.random.randint(1, itemnum + 1)
             while t in rated: t = np.random.randint(1, itemnum + 1)
             item_idx.append(t)
+    
+        if args.model.name != "SASRec":
+            time_matrix = computeRePos(time_seq, args.model.args.time_span)
 
-        time_matrix = computeRePos(time_seq, args.model.args.time_span)
-
-        predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix],item_idx]])
+        if args.model.name != "SASRec":
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix],item_idx]])
+        else:
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], item_idx]])
         predictions = predictions[0]
 
         rank = predictions.argsort().argsort()[0].item()
@@ -144,11 +160,13 @@ def evaluate_valid(model, dataset, args):
         if len(train[u]) < 1 or len(valid[u]) < 1: continue
 
         seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
+        if args.model.name != "SASRec":
+            time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
         idx = args.model.args.maxlen - 1
         for i in reversed(train[u]):
             seq[idx] = i[0]
-            time_seq[idx] = i[1]
+            if args.model.name != "SASRec":
+                time_seq[idx] = i[1]
             idx -= 1
             if idx == -1: break
 
@@ -161,8 +179,12 @@ def evaluate_valid(model, dataset, args):
             while t in rated: t = np.random.randint(1, itemnum + 1)
             item_idx.append(t)
 
-        time_matrix = computeRePos(time_seq, args.model.args.time_span)
-        predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix],item_idx]])
+        if args.model.name != "SASRec":
+            time_matrix = computeRePos(time_seq, args.model.args.time_span)
+        if args.model.name != "SASRec":
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix],item_idx]])
+        else:
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], item_idx]])
         predictions = predictions[0]
 
         rank = predictions.argsort().argsort()[0].item()

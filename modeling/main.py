@@ -46,7 +46,10 @@ def main():
     # 모델과 샘플러 불러오기
     sampler = WarpSampler(user_train, usernum, itemnum, relation_matrix, batch_size=args.batch_size, maxlen=args.model.args.maxlen, n_workers=3)
     model_module = getattr(import_module("model"), args.model.name)
-    model = model_module(usernum, itemnum, itemnum, args).to(args.device)
+    if args.model.name == 'TiSASRec':
+        model = model_module(usernum, itemnum, itemnum, args).to(args.device)
+    elif args.model.name == 'SASRec':
+        model = model_module(usernum, itemnum, args).to(args.device)
 
     # 모델 초기화
     for name, param in model.named_parameters():
