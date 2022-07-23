@@ -36,7 +36,7 @@ def remove_old_files(target_dir, thres = 3):
         thres: number of files to be remained
     """
     files = sorted(os.listdir(target_dir), key=lambda x: os.path.getctime(os.path.join(target_dir, x)))
-    files = [os.path.join(target_dir, f) for f in files if f.endswith(".pt")]
+    files = [os.path.join(target_dir, f) for f in files if f.endswith(".pth")]
 
     if len(files) <= 1:
         print("No Files to Remove")
