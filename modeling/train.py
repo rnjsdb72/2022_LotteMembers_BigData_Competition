@@ -60,8 +60,8 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
             T += t1
             print('Evaluating', end='')
             t_test = evaluate(model, dataset, args)
-            print('Epoch:%d, Time: %f(s), Test (NDCG@10: %.4f, HR@10: %.4f)'
-                    % (epoch, T, t_test[0], t_test[1]))
+            print('Epoch:%d, Time: %f(s), Test (NDCG@%d: %.4f, HR@%d: %.4f)'
+                    % (epoch, T, args.topk, t_test[0], args.topk, t_test[1]))
             
             if not os.path.isdir(args.dataset + '_' + args.train_dir + '/results'):
                 os.makedirs(args.dataset + '_' + args.train_dir + '/results')
@@ -139,7 +139,7 @@ def evaluate(model, dataset, args):
 
         valid_user += 1
 
-        if rank < 10:
+        if rank < args.topk:
             NDCG += 1 / np.log2(rank + 2)
             HT += 1
 

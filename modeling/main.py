@@ -75,7 +75,7 @@ def main():
     if args.inference_only:
         model.eval()
         t_test = evaluate(model, dataset, args)
-        print('test (NDCG@10: %.4f, HR@10: %.4f)' % (t_test[0], t_test[1]))
+        print('test (NDCG@%d: %.4f, HR@%d: %.4f)' % (args.topk, t_test[0], args.topk, t_test[1]))
 
     # criterion, optimizer 불러오기
     criterion_module = getattr(import_module("torch.nn"), args.criterion.name)

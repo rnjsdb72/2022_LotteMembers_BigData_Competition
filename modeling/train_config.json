@@ -19,6 +19,7 @@
     
     "l2_emb": 0.00005,
 
+    "topk":10,
     "num_epochs": 201,
     "device": "cpu",
     "inference_only": false,
