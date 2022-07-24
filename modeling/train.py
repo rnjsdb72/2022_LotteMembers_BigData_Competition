@@ -60,9 +60,8 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
             T += t1
             print('Evaluating', end='')
             t_test = evaluate(model, dataset, args)
-            t_valid = evaluate_valid(model, dataset, args)
-            print('Epoch:%d, Time: %f(s), Valid (NDCG@10: %.4f, HR@10: %.4f), Test (NDCG@10: %.4f, HR@10: %.4f)'
-                    % (epoch, T, t_valid[0], t_valid[1], t_test[0], t_test[1]))
+            print('Epoch:%d, Time: %f(s), Test (NDCG@10: %.4f, HR@10: %.4f)'
+                    % (epoch, T, t_test[0], t_test[1]))
             
             if not os.path.isdir(args.dataset + '_' + args.train_dir + '/results'):
                 os.makedirs(args.dataset + '_' + args.train_dir + '/results')
@@ -84,13 +83,13 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
                 if len(os.listdir(folder)) > 3:
                     remove_old_files(folder, thres=3)
 
-            f.write(str(t_valid) + ' ' + str(t_test) + '\n')
+            f.write(str(t_test) + '\n')
             f.flush()
             t0 = time.time()
             model.train()
 
 def evaluate(model, dataset, args):
-    [train, valid, test, usernum, itemnum, timenum] = copy.deepcopy(dataset)
+    [train, test, usernum, itemnum, timenum] = copy.deepcopy(dataset)
 
     NDCG = 0.0
     HT = 0.0
@@ -108,9 +107,9 @@ def evaluate(model, dataset, args):
             time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
         idx = args.model.args.maxlen - 1
         
-        seq[idx] = valid[u][0][0]
+        seq[idx] = test[u][0][0]
         if args.model.name != "SASRec":
-            time_seq[idx] = valid[u][0][1]
+            time_seq[idx] = test[u][0][1]
         idx -= 1
         for i in reversed(train[u]):
             seq[idx] = i[0]
@@ -119,7 +118,6 @@ def evaluate(model, dataset, args):
             idx -= 1
             if idx == -1: break
         rated = set(map(lambda x: x[0],train[u]))
-        rated.add(valid[u][0][0])
         rated.add(test[u][0][0])
         rated.add(0)
         item_idx = [test[u][0][0]]
@@ -131,56 +129,6 @@ def evaluate(model, dataset, args):
         if args.model.name != "SASRec":
             time_matrix = computeRePos(time_seq, args.model.args.time_span)
 
-        if args.model.name != "SASRec":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix],item_idx]])
-        else:
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], item_idx]])
-        predictions = predictions[0]
-
-        rank = predictions.argsort().argsort()[0].item()
-
-        valid_user += 1
-
-        if rank < 10:
-            NDCG += 1 / np.log2(rank + 2)
-            HT += 1
-
-    return NDCG / valid_user, HT / valid_user
-
-
-def evaluate_valid(model, dataset, args):
-    [train, valid, test, usernum, itemnum, timenum] = copy.deepcopy(dataset)
-
-    NDCG = 0.0
-    valid_user = 0.0
-    HT = 0.0
-    users = range(1, usernum + 1)
-    pbar = tqdm(users, total=len(users))
-    for u in pbar:
-        if len(train[u]) < 1 or len(valid[u]) < 1: continue
-
-        seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        if args.model.name != "SASRec":
-            time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        idx = args.model.args.maxlen - 1
-        for i in reversed(train[u]):
-            seq[idx] = i[0]
-            if args.model.name != "SASRec":
-                time_seq[idx] = i[1]
-            idx -= 1
-            if idx == -1: break
-
-        rated = set(map(lambda x: x[0], train[u]))
-        rated.add(valid[u][0][0])
-        rated.add(0)
-        item_idx = [valid[u][0][0]]
-        for _ in range(100):
-            t = np.random.randint(1, itemnum + 1)
-            while t in rated: t = np.random.randint(1, itemnum + 1)
-            item_idx.append(t)
-
-        if args.model.name != "SASRec":
-            time_matrix = computeRePos(time_seq, args.model.args.time_span)
         if args.model.name != "SASRec":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix],item_idx]])
         else:

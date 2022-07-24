@@ -166,7 +166,6 @@ def data_partition(fname):
     itemnum = 0
     User = defaultdict(list)
     user_train = {}
-    user_valid = {}
     user_test = {}
     
     print('Preparing data...')
@@ -206,13 +205,10 @@ def data_partition(fname):
         nfeedback = len(User[user])
         if nfeedback < 3:
             user_train[user] = User[user]
-            user_valid[user] = []
             user_test[user] = []
         else:
-            user_train[user] = User[user][:-2]
-            user_valid[user] = []
-            user_valid[user].append(User[user][-2])
+            user_train[user] = User[user][:-1]
             user_test[user] = []
             user_test[user].append(User[user][-1])
     print('Preparing done...')
-    return [user_train, user_valid, user_test, usernum, itemnum, timenum]
+    return [user_train, user_test, usernum, itemnum, timenum]

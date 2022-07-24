@@ -26,7 +26,7 @@ def main():
 
     # 데이터 불러오기
     dataset = data_partition(args.dataset)
-    [user_train, user_valid, user_test, usernum, itemnum, timenum] = dataset
+    [user_train, user_test, usernum, itemnum, timenum] = dataset
     num_batch = len(user_train) // args.batch_size
     cc = 0.0
     for u in user_train:
