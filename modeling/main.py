@@ -68,7 +68,7 @@ def main():
     if args.state_dict_path is not None:
         try:
             model.load_state_dict(torch.load(args.state_dict_path))
-            epoch_start_idx = int(args.state_dict_path.split('=')[-1])+1
+            epoch_start_idx = int(args.state_dict_path.split('=')[-1].split('.')[0])+1
         except:
             print('failed loading state_dicts, pls check file path: ', end="")
             print(args.state_dict_path)
