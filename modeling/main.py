@@ -34,10 +34,7 @@ def main():
     print('average sequence length: %.2f' % (cc / len(user_train)))
 
     # 로그 파일 불러오기
-    if not os.path.isfile(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt')):
-        f = open(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt'), 'w')
-    else:
-        f = open(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt'), 'r')
+    f = open(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt'), 'a')
 
     # relation_matrix가 있으면 불러오고 없으면 생성
     try:
