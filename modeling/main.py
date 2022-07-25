@@ -15,7 +15,7 @@ def main():
     with open(args_.cfg, 'r') as f:
         args = json.load(f, object_hook=lambda d: namedtuple('x', d.keys())(*d.values()))
 
-    if not os.path.isfile(args.dataset + '_' + args.train_dir):
+    if not os.path.isdir(args.dataset + '_' + args.train_dir):
         os.makedirs(args.dataset + '_' + args.train_dir)
     with open(os.path.join(args.dataset + '_' + args.train_dir, 'args.txt'), 'w') as f:
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(args._asdict().items(), key=lambda x: x[0])]))
@@ -34,7 +34,7 @@ def main():
     print('average sequence length: %.2f' % (cc / len(user_train)))
 
     # 로그 파일 불러오기
-    if not os.path.isdir(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt')):
+    if not os.path.isfile(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt')):
         f = open(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt'), 'w')
     else:
         f = open(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt'), 'r')
