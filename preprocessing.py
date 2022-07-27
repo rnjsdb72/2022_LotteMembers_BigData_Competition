@@ -1,9 +1,11 @@
 import pandas as pd
 import time
 import os
+import joblib
+import argparse
 from sklearn.preprocessing import RobustScaler
 
-def make_df(prod, serv, cust, prod_info):
+def make_df(prod, serv, cust, prod_info, scaler):
     lst = ['cust', 'rct_no', 'cop_c', 'chnl_dv', 'de_dt', 'de_hr', 'buy_am']
     prod['buy_am'] = prod['buy_am'] / prod['buy_ct']
     trans = pd.concat([prod[lst+['pd_c']], serv[lst]])
@@ -22,9 +24,16 @@ def make_df(prod, serv, cust, prod_info):
     trans['timestamp'] = trans['de_dt_hr'].apply(lambda x : time.mktime(x.timetuple())).astype("int32")
     lst2 = ['cust','pd_c','timestamp','buy_am','clac_hlv_nm','clac_mcls_nm','pd_nm','chnl_dv','de_dt_month','ma_fem_dv','ages','zon_hlv']
     trans = trans[lst2]
-    
-    transformer = RobustScaler()
-    trans['buy_am'] = pd.DataFrame(transformer.fit_transform(trans[['buy_am']]) , columns = ['buy_am'])
+
+    if scaler != None:
+        transformer = joblib.load(scaler)
+        trans['buy_am'] = pd.DataFrame(transformer.transform(trans[['buy_am']]) , columns = ['buy_am'])
+    else:
+        transformer = RobustScaler()
+        trans['buy_am'] = pd.DataFrame(transformer.fit_transform(trans[['buy_am']]) , columns = ['buy_am'])
+        if not os.path.exists('./models'):
+            os.mkdir('./models')
+        joblib.dump(transformer, 'models/RobustScaler.pkl')
     
     for i in lst2[:2] + lst2[4:] : 
         id2 = dict(enumerate(sorted(trans[i].unique())))
@@ -41,16 +50,23 @@ def make_df(prod, serv, cust, prod_info):
     return trans
 
 if __name__ == "__main__":
-    yes = input('데이터 경로를 직접 입력을 희망하시면 "yes"를 입력해주세요: \t')
-    if yes == "yes":
-        prod = pd.read_csv(input('상품 구매 정보 데이터 csv 경로를 입력하시오: \t'))
-        serv = pd.read_csv(input('제휴사 이용 정보 csv 경로를 입력하시오: \t'))
-        cust = pd.read_csv(input('고객 데모 정보 데이터 csv 경로를 입력하시오: \t'))
-        prod_info = pd.read_csv(input('상품 분류 정보 데이터 csv 경로를 입력하시오: \t'))
-    else:
-        prod = pd.read_csv('data/LPOINT_BIG_COMP_02_PDDE.csv')
-        serv = pd.read_csv('data/LPOINT_BIG_COMP_03_COP_U.csv')
-        cust = pd.read_csv('data/LPOINT_BIG_COMP_01_DEMO.csv')
-        prod_info = pd.read_csv('data/LPOINT_BIG_COMP_04_PD_CLAC.csv')
+    parser = argparse.ArgumentParser()
 
-    df = make_df(prod, serv, cust, prod_info)
+    parser.add_argument('--prod', type=str, default='data/LPOINT_BIG_COMP_02_PDDE.csv')
+    parser.add_argument('--serv', type=str, default='data/LPOINT_BIG_COMP_03_COP_U.csv')
+    parser.add_argument('--cust', type=str, default='data/LPOINT_BIG_COMP_01_DEMO.csv')
+    parser.add_argument('--prod_info', type=str, default='data/LPOINT_BIG_COMP_04_PD_CLAC.csv')
+    parser.add_argument('--scaler', type=str, default='')
+
+    args = parser.parse_args()
+
+    if args.scaler == '':
+        scaler = None
+    else:
+        scaler = args.scaler
+    prod = pd.read_csv(args.prod)
+    serv = pd.read_csv(args.serv)
+    cust = pd.read_csv(args.cust)
+    prod_info = pd.read_csv(args.prod_info)
+
+    df = make_df(prod, serv, cust, prod_info, scaler)
