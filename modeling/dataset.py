@@ -52,6 +52,15 @@ def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_m
         """
         seq = np.zeros([maxlen], dtype=np.int32)
         time_seq = np.zeros([maxlen], dtype=np.int32)
+        buy_am = np.zeros([maxlen], dtype=np.float32)
+        clac_hlv_nm = np.zeros([maxlen], dtype=np.int32)
+        clac_mcls_nm = np.zeros([maxlen], dtype=np.int32)
+        pd_nm = np.zeros([maxlen], dtype=np.int32)
+        chnl_dv = np.zeros([maxlen], dtype=np.int32)
+        de_dt_month = np.zeros([maxlen], dtype=np.int32)
+        ma_fem_dv = np.zeros([maxlen], dtype=np.int32)
+        ages = np.zeros([maxlen], dtype=np.int32)
+        zon_hlv = np.zeros([maxlen], dtype=np.int32)
         pos = np.zeros([maxlen], dtype=np.int32)
         neg = np.zeros([maxlen], dtype=np.int32)
         nxt = user_train[user][-1][0]
@@ -61,13 +70,22 @@ def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_m
         for i in reversed(user_train[user][:-1]):
             seq[idx] = i[0]
             time_seq[idx] = i[1]
+            buy_am[idx] = i[2]
+            clac_hlv_nm[idx] = i[3]
+            clac_mcls_nm[idx] = i[4]
+            pd_nm[idx] = i[5]
+            chnl_dv[idx] = i[6]
+            de_dt_month[idx] = i[7]
+            ma_fem_dv[idx] = i[8]
+            ages[idx] = i[9]
+            zon_hlv[idx] = i[10]
             pos[idx] = nxt
             if nxt != 0: neg[idx] = random_neq(1, itemnum + 1, ts)
             nxt = i[0]
             idx -= 1
             if idx == -1: break
         time_matrix = relation_matrix[user]
-        return (user, seq, time_seq, time_matrix, pos, neg)
+        return (user, seq, time_seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
 
     np.random.seed(SEED)
     while True:
@@ -139,7 +157,7 @@ def cleanAndsort(User, time_map):
 
     User_res = dict()
     for user, items in User_filted.items():
-        User_res[user_map[user]] = list(map(lambda x: [item_map[x[0]], time_map[x[1]]], items))
+        User_res[user_map[user]] = list(map(lambda x: [item_map[x[0]], time_map[x[1]], *x[2:]], items))
 
     time_max = set()
     for user, items in User_res.items():
@@ -153,7 +171,7 @@ def cleanAndsort(User, time_map):
         else:
             time_scale = min(time_diff)
         time_min = min(time_list)
-        User_res[user] = list(map(lambda x: [x[0], int(round((x[1]-time_min)/time_scale)+1)], items))
+        User_res[user] = list(map(lambda x: [x[0], int(round((x[1]-time_min)/time_scale)+1), *x[2:]], items))
         time_max.add(max(set(map(lambda x: x[1], User_res[user]))))
 
     return User_res, len(user_set), len(item_set), max(time_max)
@@ -176,9 +194,9 @@ def data_partition(fname):
     item_count = defaultdict(int)
     for line in f:
         try:
-            u, i, rating, timestamp = line.rstrip().split('\t')
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         except:
-            u, i, timestamp = line.rstrip().split('\t')
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         u = int(u)
         i = int(i)
         user_count[u]+=1
@@ -187,16 +205,25 @@ def data_partition(fname):
     f = open('../data/%s.txt' % fname, 'r') # try?...ugly data pre-processing code
     for line in f:
         try:
-            u, i, rating, timestamp = line.rstrip().split('\t')
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         except:
-            u, i, timestamp = line.rstrip().split('\t')
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         u = int(u)
         i = int(i)
         timestamp = float(timestamp)
+        buy_am = float(buy_am)
+        clac_hlv_nm = int(clac_hlv_nm)
+        clac_mcls_nm = int(clac_mcls_nm)
+        pd_nm = int(pd_nm)
+        chnl_dv = int(chnl_dv)
+        de_dt_month = int(de_dt_month)
+        ma_fem_dv = int(ma_fem_dv)
+        ages = int(ages)
+        zon_hlv = int(zon_hlv)
         if user_count[u]<5 or item_count[i]<5: # hard-coded
             continue
         time_set.add(timestamp)
-        User[u].append([i, timestamp])
+        User[u].append([i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv])
     f.close()
     time_map = timeSlice(time_set)
     User, usernum, itemnum, timenum = cleanAndsort(User, time_map)
