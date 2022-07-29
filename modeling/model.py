@@ -226,6 +226,7 @@ class TiSASRec(torch.nn.Module): # similar to torch.nn.MultiheadAttention
 class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
     def __init__(self, user_num, item_num, time_num, args):
         super(TiSASRecwithAux, self).__init__()
+        self.args = args
 
         self.user_num = user_num
         self.item_num = item_num
@@ -248,8 +249,9 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         self.clac_hlv_nm_K_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
         self.clac_mcls_nm_Q_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
         self.clac_mcls_nm_K_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
-        self.buy_am_n_chnl_dv_Q = torch.nn.Linear(2, args.model.args.seq_attr_hidden_units)
-        self.buy_am_n_chnl_dv_K = torch.nn.Linear(2, args.model.args.seq_attr_hidden_units)
+        buy_am_n_chnl_dv_input_dim = int(args.model.aux_info.buy_am) + int(args.model.aux_info.chnl_dv)
+        self.buy_am_n_chnl_dv_Q = torch.nn.Linear(buy_am_n_chnl_dv_input_dim, args.model.args.seq_attr_hidden_units)
+        self.buy_am_n_chnl_dv_K = torch.nn.Linear(buy_am_n_chnl_dv_input_dim, args.model.args.seq_attr_hidden_units)
 
         self.user_emb = torch.nn.Embedding(self.user_num+1, args.model.args.user_attr_emb_size)
         self.ma_fem_dv_emb = torch.nn.Embedding(3, args.model.args.user_attr_emb_size)
@@ -293,7 +295,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             max_len = args.model.args.maxlen
         )
 
-        self.num_user_aux = 5
+        self.num_user_aux = int(self.args.model.aux_info.user_id) + int(self.args.model.aux_info.de_dt_month) +\
+             int(self.args.model.aux_info.ma_fem_dv) + int(self.args.model.aux_info.ages) + int(self.args.model.aux_info.zon_hlv)
         self.userMLP = MLPUserAux(
             user_attr_emb_size = args.model.args.user_attr_emb_size,
             num_user_aux = self.num_user_aux, 
@@ -345,26 +348,39 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         timeline_mask = torch.BoolTensor(log_seqs == 0).to(self.dev)
         seqs *= ~timeline_mask.unsqueeze(-1) # broadcast in last dim
 
-        am_chnl = np.concatenate([buy_am.reshape(-1, self.maxlen, 1), chnl_dv.reshape(-1, self.maxlen, 1)], axis=-1)
-        clac_hlv_nm_Q_ = self.clac_hlv_nm_Q_emb(torch.LongTensor(clac_hlv_nm).to(self.dev))
-        clac_hlv_nm_K_ = self.clac_hlv_nm_K_emb(torch.LongTensor(clac_hlv_nm).to(self.dev))
-        clac_mcls_nm_Q_ = self.clac_mcls_nm_Q_emb(torch.LongTensor(clac_mcls_nm).to(self.dev))
-        clac_mcls_nm_K_ = self.clac_mcls_nm_K_emb(torch.LongTensor(clac_mcls_nm).to(self.dev))
-        am_chnl_Q_ = self.buy_am_n_chnl_dv_Q(torch.FloatTensor(am_chnl).to(self.dev))
-        am_chnl_K_ = self.buy_am_n_chnl_dv_K(torch.FloatTensor(am_chnl).to(self.dev))
+        feature_table = []
+        if (self.args.model.aux_info.clac_hlv_nm == True):
+            clac_hlv_nm_Q_ = self.clac_hlv_nm_Q_emb(torch.LongTensor(clac_hlv_nm).to(self.dev))
+            clac_hlv_nm_K_ = self.clac_hlv_nm_K_emb(torch.LongTensor(clac_hlv_nm).to(self.dev))
+            clac_hlv_nm_Q_ = self.clac_hlv_nm_Q_dropout(clac_hlv_nm_Q_)
+            clac_hlv_nm_K_ = self.clac_hlv_nm_K_dropout(clac_hlv_nm_K_)
+            clac_hlv_nm_attr = torch.stack([clac_hlv_nm_Q_, clac_hlv_nm_K_])
+            feature_table.append(clac_hlv_nm_attr)
 
-        clac_hlv_nm_Q_ = self.clac_hlv_nm_Q_dropout(clac_hlv_nm_Q_)
-        clac_hlv_nm_K_ = self.clac_hlv_nm_K_dropout(clac_hlv_nm_K_)
-        clac_mcls_nm_Q_ = self.clac_mcls_nm_Q_dropout(clac_mcls_nm_Q_)
-        clac_mcls_nm_K_ = self.clac_mcls_nm_K_dropout(clac_mcls_nm_K_)
-        am_chnl_Q_ = self.buy_am_n_chnl_dv_Q_dropout(am_chnl_Q_)
-        am_chnl_K_ = self.buy_am_n_chnl_dv_K_dropout(am_chnl_K_)
-        
-        clac_hlv_nm_attr = torch.stack([clac_hlv_nm_Q_, clac_hlv_nm_K_])
-        clac_mcls_nm_attr = torch.stack([clac_mcls_nm_Q_, clac_mcls_nm_K_])
-        attr_shape_ = clac_hlv_nm_attr.shape
-        am_chnl_attr = torch.stack([am_chnl_Q_, am_chnl_K_]).view(attr_shape_)
-        feature_table = torch.stack([clac_hlv_nm_attr, clac_mcls_nm_attr, am_chnl_attr])
+        if (self.args.model.aux_info.clac_mcls_nm == True):
+            clac_mcls_nm_Q_ = self.clac_mcls_nm_Q_emb(torch.LongTensor(clac_mcls_nm).to(self.dev))
+            clac_mcls_nm_K_ = self.clac_mcls_nm_K_emb(torch.LongTensor(clac_mcls_nm).to(self.dev))
+            clac_mcls_nm_Q_ = self.clac_mcls_nm_Q_dropout(clac_mcls_nm_Q_)
+            clac_mcls_nm_K_ = self.clac_mcls_nm_K_dropout(clac_mcls_nm_K_)
+            clac_mcls_nm_attr = torch.stack([clac_mcls_nm_Q_, clac_mcls_nm_K_])
+            feature_table.append(clac_mcls_nm_attr)
+
+        if (self.args.model.aux_info.buy_am == True) & (self.args.model.aux_info.chnl_dv == True):
+            am_chnl = np.concatenate([buy_am.reshape(-1, self.maxlen, 1), chnl_dv.reshape(-1, self.maxlen, 1)], axis=-1)
+        elif (self.args.model.aux_info.buy_am == True) & (self.args.model.aux_info.chnl_dv == False):
+            am_chnl = buy_am.reshape(-1, self.maxlen, 1)
+        else:
+            am_chnl = chnl_dv.reshape(-1, self.maxlen, 1)
+        if not (self.args.model.aux_info.buy_am == False) & (self.args.model.aux_info.chnl_dv == False):
+            am_chnl_Q_ = self.buy_am_n_chnl_dv_Q(torch.FloatTensor(am_chnl).to(self.dev))
+            am_chnl_K_ = self.buy_am_n_chnl_dv_K(torch.FloatTensor(am_chnl).to(self.dev))
+            am_chnl_Q_ = self.buy_am_n_chnl_dv_Q_dropout(am_chnl_Q_)
+            am_chnl_K_ = self.buy_am_n_chnl_dv_K_dropout(am_chnl_K_)
+            attr_shape_ = clac_hlv_nm_attr.shape
+            am_chnl_attr = torch.stack([am_chnl_Q_, am_chnl_K_]).view((2, self.args.batch_size, self.args.model.args.maxlen, -1))
+            feature_table.append(am_chnl_attr)
+
+        feature_table = torch.stack(feature_table)
 
         extended_attention_mask = self.get_attention_mask(torch.LongTensor(log_seqs).to(self.dev))
         trm_output = self.trm_encoder(seqs, feature_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V,
@@ -374,19 +390,29 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         return output
 
     def useraux2feats(self, user, ma_fem_dv, ages, zon_hlv, de_dt_month):
-        user = self.user_emb(torch.LongTensor(user).to(self.dev))
-        ma_fem_dv = self.ma_fem_dv_emb(torch.LongTensor(ma_fem_dv[:,-1]).to(self.dev))
-        ages = self.ages_emb(torch.LongTensor(ages[:,-1]).to(self.dev))
-        zon_hlv = self.zon_hlv_emb(torch.LongTensor(zon_hlv[:,-1]).to(self.dev))
-        de_dt_month = self.de_dt_month_emb(torch.LongTensor(de_dt_month[:,-1]).to(self.dev))
+        aux_table = []
+        if self.args.model.aux_info.user_id:
+            user = self.user_emb(torch.LongTensor(user).to(self.dev))
+            user = self.user_dropout(user)
+            aux_table.append(user)
+        if self.args.model.aux_info.de_dt_month:
+            de_dt_month = self.de_dt_month_emb(torch.LongTensor(de_dt_month[:,-1]).to(self.dev))
+            de_dt_month = self.de_dt_month_dropout(de_dt_month)
+            aux_table.append(de_dt_month)
+        if self.args.model.aux_info.ma_fem_dv:
+            ma_fem_dv = self.ma_fem_dv_emb(torch.LongTensor(ma_fem_dv[:,-1]).to(self.dev))
+            ma_fem_dv = self.ma_fem_dv_dropout(ma_fem_dv)
+            aux_table.append(ma_fem_dv)
+        if self.args.model.aux_info.ages:
+            ages = self.ages_emb(torch.LongTensor(ages[:,-1]).to(self.dev))
+            ages = self.ages_dropout(ages)
+            aux_table.append(ages)
+        if self.args.model.aux_info.zon_hlv:
+            zon_hlv = self.zon_hlv_emb(torch.LongTensor(zon_hlv[:,-1]).to(self.dev))
+            zon_hlv = self.zon_hlv_dropout(zon_hlv)
+            aux_table.append(zon_hlv)
 
-        user = self.user_dropout(user)
-        ma_fem_dv = self.ma_fem_dv_dropout(ma_fem_dv)
-        ages = self.ages_dropout(ages)
-        zon_hlv = self.zon_hlv_dropout(zon_hlv)
-        de_dt_month = self.de_dt_month_dropout(de_dt_month)
-
-        input = torch.cat([user, ma_fem_dv, ages, zon_hlv, de_dt_month], axis=-1)
+        input = torch.cat(aux_table, axis=-1)
         output = self.userMLP(input)
         return output
 
