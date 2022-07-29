@@ -23,7 +23,7 @@ def computeRePos(time_seq, time_span):
     time_matrix = np.zeros([size, size], dtype=np.int32)
     for i in range(size):
         for j in range(size):
-            span = abs(time_seq[i]-time_seq[j])
+            span = abs(round((time_seq[i]-time_seq[j])/(60*60)))
             if span > time_span:
                 time_matrix[i][j] = time_span
             else:
