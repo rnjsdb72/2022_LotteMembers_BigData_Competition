@@ -376,8 +376,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             am_chnl_K_ = self.buy_am_n_chnl_dv_K(torch.FloatTensor(am_chnl).to(self.dev))
             am_chnl_Q_ = self.buy_am_n_chnl_dv_Q_dropout(am_chnl_Q_)
             am_chnl_K_ = self.buy_am_n_chnl_dv_K_dropout(am_chnl_K_)
-            attr_shape_ = clac_hlv_nm_attr.shape
-            am_chnl_attr = torch.stack([am_chnl_Q_, am_chnl_K_]).view((2, self.args.batch_size, self.args.model.args.maxlen, -1))
+            am_chnl_attr = torch.stack([am_chnl_Q_, am_chnl_K_]).view((2, -1, self.args.model.args.maxlen, self.args.model.args.seq_attr_hidden_units))
             feature_table.append(am_chnl_attr)
 
         feature_table = torch.stack(feature_table)
