@@ -208,7 +208,9 @@ def evaluate_valid(model, dataset, args):
     valid_user = 0.0
     HT = 0.0
 
-    for u in users:
+    users = range(1, usernum + 1)
+    pbar = tqdm(users, total=len(users))
+    for u in pbar:
         if len(train[u]) < 1 or len(valid[u]) < 1: continue
 
         seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
