@@ -73,8 +73,8 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
                 print('Epoch:%d, Time: %f(s), Test (NDCG@%d: %.4f, HR@%d: %.4f)'
                         % (epoch, T, args.topk, t_test[0], args.topk, t_test[1]))
             
-            if not os.path.isdir(args.dataset + '_' + args.train_dir + '/results'):
-                os.makedirs(args.dataset + '_' + args.train_dir + '/results')
+            if not os.path.isdir("../models/" + args.dataset + '_' + args.train_dir + '/results'):
+                os.makedirs("../models/" + args.dataset + '_' + args.train_dir + '/results')
 
             if best_hr < t_test[1]:
                 folder = "../models/" + args.dataset + '_' + args.train_dir + '/results'
