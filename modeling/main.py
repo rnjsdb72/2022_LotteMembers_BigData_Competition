@@ -15,9 +15,9 @@ def main():
     with open(args_.cfg, 'r') as f:
         args = json.load(f, object_hook=lambda d: namedtuple('x', d.keys())(*d.values()))
 
-    if not os.path.isdir(args.dataset + '_' + args.train_dir):
-        os.makedirs(args.dataset + '_' + args.train_dir)
-    with open(os.path.join(args.dataset + '_' + args.train_dir, 'args.txt'), 'w') as f:
+    if not os.path.isdir("../models/" + args.dataset + '_' + args.train_dir):
+        os.makedirs("../models/" + args.dataset + '_' + args.train_dir)
+    with open(os.path.join("../models/" + args.dataset + '_' + args.train_dir, 'args.txt'), 'w') as f:
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(args._asdict().items(), key=lambda x: x[0])]))
     f.close()
 
@@ -25,8 +25,12 @@ def main():
     fix_seed(args.seed)
 
     # 데이터 불러오기
-    dataset = data_partition(args.dataset)
-    [user_train, user_test, usernum, itemnum, timenum] = dataset
+    if args.validation == False:
+        dataset = data_partition_no_valid(args.dataset)
+        [user_train, user_test, usernum, itemnum, timenum] = dataset
+    elif args.validation == True:
+        dataset = data_partition_with_valid(args.dataset)
+        [user_train, user_valid, user_test, usernum, itemnum, timenum] = dataset
     num_batch = len(user_train) // args.batch_size
     cc = 0.0
     for u in user_train:
@@ -34,7 +38,7 @@ def main():
     print('average sequence length: %.2f' % (cc / len(user_train)))
 
     # 로그 파일 불러오기
-    f = open(os.path.join(args.dataset + '_' + args.train_dir, 'log.txt'), 'a')
+    f = open(os.path.join("../models/" + args.dataset + '_' + args.train_dir, 'log.txt'), 'a')
 
     # relation_matrix가 있으면 불러오고 없으면 생성
     try:

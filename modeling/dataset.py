@@ -176,7 +176,7 @@ def cleanAndsort(User, time_map):
 
     return User_res, len(user_set), len(item_set), max(time_max)
 
-def data_partition(fname):
+def data_partition_no_valid(fname):
     """
     Split Dataset
     """
@@ -239,3 +239,71 @@ def data_partition(fname):
             user_test[user].append(User[user][-1])
     print('Preparing done...')
     return [user_train, user_test, usernum, itemnum, timenum]
+
+def data_partition_with_valid(fname):
+    """
+    Split Dataset
+    """
+    usernum = 0
+    itemnum = 0
+    User = defaultdict(list)
+    user_train = {}
+    user_valid = {}
+    user_test = {}
+    
+    print('Preparing data...')
+    f = open('../data/%s.txt' % fname, 'r')
+    time_set = set()
+
+    user_count = defaultdict(int)
+    item_count = defaultdict(int)
+    for line in f:
+        try:
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+        except:
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+        u = int(u)
+        i = int(i)
+        user_count[u]+=1
+        item_count[i]+=1
+    f.close()
+    f = open('../data/%s.txt' % fname, 'r') # try?...ugly data pre-processing code
+    for line in f:
+        try:
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+        except:
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+        u = int(u)
+        i = int(i)
+        timestamp = float(timestamp)
+        buy_am = float(buy_am)
+        clac_hlv_nm = int(clac_hlv_nm)
+        clac_mcls_nm = int(clac_mcls_nm)
+        pd_nm = int(pd_nm)
+        chnl_dv = int(chnl_dv)
+        de_dt_month = int(de_dt_month)
+        ma_fem_dv = int(ma_fem_dv)
+        ages = int(ages)
+        zon_hlv = int(zon_hlv)
+        if user_count[u]<5 or item_count[i]<5: # hard-coded
+            continue
+        time_set.add(timestamp)
+        User[u].append([i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv])
+    f.close()
+    time_map = timeSlice(time_set)
+    User, usernum, itemnum, timenum = cleanAndsort(User, time_map)
+
+    for user in User:
+        nfeedback = len(User[user])
+        if nfeedback < 3:
+            user_train[user] = User[user]
+            user_valid[user] = []
+            user_test[user] = []
+        else:
+            user_train[user] = User[user][:-1]
+            user_valid[user] = []
+            user_valid[user].append(User[user][-2])
+            user_test[user] = []
+            user_test[user].append(User[user][-1])
+    print('Preparing done...')
+    return [user_train, user_valid, user_test, usernum, itemnum, timenum]
