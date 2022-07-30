@@ -169,7 +169,8 @@ def evaluate(model, dataset, args):
             idx -= 1
             if idx == -1: break
         rated = set(map(lambda x: x[0],train[u]))
-        rated.add(valid[u][0][0])
+        if args.validation == True:
+            rated.add(valid[u][0][0])
         rated.add(test[u][0][0])
         rated.add(0)
         item_idx = [test[u][0][0]]
