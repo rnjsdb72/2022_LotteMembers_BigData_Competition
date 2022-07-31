@@ -451,8 +451,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             output = output_items + output_useraux
         elif self.fusion_type_final == "concat":
             output = torch.cat([output_items, output_useraux], dim=-1)
-            output_shape = output_items.shape
-            output = nn.Linear(output_shape[0], output_shape[0]//2)(output)
+            output_shape = output.shape
+            output = nn.Linear(output_shape[-1], output_shape[-1]//2)(output)
 
         log_feats = self.last_layernorm(output)
 
