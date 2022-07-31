@@ -280,12 +280,14 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
 
         self.last_layernorm = torch.nn.LayerNorm(args.model.args.hidden_units, eps=1e-8)
 
+        seq_feat_num = int((self.args.model.aux_info.buy_am) or (self.args.model.aux_info.chnl_dv)) + int(self.args.model.aux_info.clac_hlv_nm) +\
+                             int(self.args.model.aux_info.clac_mcls_nm)
         self.trm_encoder = DIFTransformerEncoder(
             n_layers = args.model.args.num_blocks,
             n_heads = args.model.args.num_heads,
             hidden_size = args.model.args.hidden_units,
             attribute_hidden_size = args.model.args.seq_attr_hidden_units,
-            feat_num = args.model.args.seq_feat_num,
+            feat_num = seq_feat_num,
             inner_size = args.model.args.inner_size,
             hidden_dropout_prob = args.model.args.dropout_rate,
             attn_dropout_prob = args.model.args.attn_dropout_rate,

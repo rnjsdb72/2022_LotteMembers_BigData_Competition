@@ -115,7 +115,7 @@ class DIFMultiHeadAttention(nn.Module):
             [copy.deepcopy(nn.Linear(attribute_hidden_size[_], self.attribute_all_head_size[_])) for _ in range(self.feat_num)])
 
         if self.fusion_type == 'concat':
-            self.fusion_layer = nn.Linear(self.max_len*(2+self.feat_num), self.max_len)
+            self.fusion_layer = nn.Linear(self.max_len*(1+self.feat_num), self.max_len)
         elif self.fusion_type == 'gate':
             self.fusion_layer = VanillaAttention(self.max_len,self.max_len)
         self.attn_dropout = nn.Dropout(attn_dropout_prob)
