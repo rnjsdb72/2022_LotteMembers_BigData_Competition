@@ -100,8 +100,10 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
 
                 if len(os.listdir(folder)) > 3:
                     remove_old_files(folder, thres=3)
-
-            f.write(str(t_valid) + ' ' + str(t_test) + '\n')
+            if args.validation == True:
+                f.write(str(t_valid) + ' ' + str(t_test) + '\n')
+            else:
+                f.write(str(t_test) + '\n')
             f.flush()
             t0 = time.time()
             model.train()
