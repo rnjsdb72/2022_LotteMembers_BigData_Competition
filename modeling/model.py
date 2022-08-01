@@ -280,14 +280,14 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
 
         self.last_layernorm = torch.nn.LayerNorm(args.model.args.hidden_units, eps=1e-8)
 
-        seq_feat_num = int((self.args.model.aux_info.buy_am) or (self.args.model.aux_info.chnl_dv)) + int(self.args.model.aux_info.clac_hlv_nm) +\
+        self.seq_feat_num = int((self.args.model.aux_info.buy_am) or (self.args.model.aux_info.chnl_dv)) + int(self.args.model.aux_info.clac_hlv_nm) +\
                              int(self.args.model.aux_info.clac_mcls_nm)
         self.trm_encoder = DIFTransformerEncoder(
             n_layers = args.model.args.num_blocks,
             n_heads = args.model.args.num_heads,
             hidden_size = args.model.args.hidden_units,
             attribute_hidden_size = args.model.args.seq_attr_hidden_units,
-            feat_num = seq_feat_num,
+            feat_num = self.seq_feat_num,
             inner_size = args.model.args.inner_size,
             hidden_dropout_prob = args.model.args.dropout_rate,
             attn_dropout_prob = args.model.args.attn_dropout_rate,
@@ -381,7 +381,10 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             am_chnl_attr = torch.stack([am_chnl_Q_, am_chnl_K_]).view((2, -1, self.args.model.args.maxlen, self.args.model.args.seq_attr_hidden_units))
             feature_table.append(am_chnl_attr)
 
-        feature_table = torch.stack(feature_table)
+        if self.seq_feat_num != 0:
+            feature_table = torch.stack(feature_table)
+        else:
+            feature_table = None
 
         extended_attention_mask = self.get_attention_mask(torch.LongTensor(log_seqs).to(self.dev))
         trm_output = self.trm_encoder(seqs, feature_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V,
@@ -413,21 +416,25 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             zon_hlv = self.zon_hlv_dropout(zon_hlv)
             aux_table.append(zon_hlv)
 
-        input = torch.cat(aux_table, axis=-1)
-        output = self.userMLP(input)
-        return output
+        if self.num_user_aux != 0:
+            input = torch.cat(aux_table, axis=-1)
+            output = self.userMLP(input)
+            return output
 
     def forward(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos_seqs, neg_seqs): # for training
         output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
-        output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
-        output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
+        if self.num_user_aux != 0:
+            output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
+            output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
 
-        if self.fusion_type_final == "sum":
-            output = output_items + output_useraux
-        elif self.fusion_type_final == "concat":
-            output = torch.cat([output_items, output_useraux], dim=-1)
-            output_shape = output_items.shape
-            output = nn.Linear(output_shape[0], output_shape[0]//2)(output)
+            if self.fusion_type_final == "sum":
+                output = output_items + output_useraux
+            elif self.fusion_type_final == "concat":
+                output = torch.cat([output_items, output_useraux], dim=-1)
+                output_shape = output_items.shape
+                output = nn.Linear(output_shape[0], output_shape[0]//2)(output)
+        else:
+            output = output_items
 
         log_feats = self.last_layernorm(output)
 
@@ -444,16 +451,19 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
 
     def predict(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_indices): # for inference
         output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
-        output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
-        output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
+        if self.num_user_aux != 0:
+            output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
+            output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
 
-        if self.fusion_type_final == "sum":
-            output = output_items + output_useraux
-        elif self.fusion_type_final == "concat":
-            output = torch.cat([output_items, output_useraux], dim=-1)
-            output_shape = output.shape
-            self.final_linear = nn.Linear(output_shape[-1], output_shape[-1]//2)
-            output = self.final_linear(output)
+            if self.fusion_type_final == "sum":
+                output = output_items + output_useraux
+            elif self.fusion_type_final == "concat":
+                output = torch.cat([output_items, output_useraux], dim=-1)
+                output_shape = output.shape
+                self.final_linear = nn.Linear(output_shape[-1], output_shape[-1]//2)
+                output = self.final_linear(output)
+        else:
+            output = output_items
 
         log_feats = self.last_layernorm(output)
 

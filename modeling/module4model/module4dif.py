@@ -157,39 +157,44 @@ class DIFMultiHeadAttention(nn.Module):
         # seq length adaptive scaling
         item_attention_scores = item_attention_scores / (K_.shape[-1] ** 0.5)
 
-        attribute_attention_table = []
-        for i, (attribute_query, attribute_key) in enumerate(
-                zip(self.query_layers, self.key_layers)):
-            attribute_tensor = attribute_table[i].squeeze(-2)
-            attribute_query_layer = self.transpose_for_scores_attribute(attribute_query(attribute_tensor[0]),i)
-            attribute_key_layer = self.transpose_for_scores_attribute(attribute_key(attribute_tensor[1]),i)
-            attribute_attention_scores = torch.matmul(attribute_query_layer, attribute_key_layer.transpose(-1, -2))
-            attribute_attention_table.append(attribute_attention_scores.unsqueeze(-2))
-        attribute_attention_table = torch.cat(attribute_attention_table,dim=-2)
-        table_shape = attribute_attention_table.shape
-        feat_atten_num, attention_size = table_shape[-2], table_shape[-1]
-        
-        if self.fusion_type == 'sum':
-            attention_scores = torch.sum(attribute_attention_table, dim=-2)
-            attention_scores = attention_scores + item_attention_scores
-        elif self.fusion_type == 'concat':
-            attention_scores = attribute_attention_table.view(table_shape[:-2] + (feat_atten_num * attention_size,))
-            attention_scores = torch.cat([attention_scores, item_attention_scores], dim=-1)
-            attention_scores = self.fusion_layer(attention_scores)
-        elif self.fusion_type == 'gate':
-            attention_scores = torch.cat(
-                [attribute_attention_table, item_attention_scores.unsqueeze(-2).unsqueeze(-2)], dim=-2)
-            attention_scores,_ = self.fusion_layer(attention_scores)
+        if attribute_table != None:
+            attribute_attention_table = []
+            for i, (attribute_query, attribute_key) in enumerate(
+                    zip(self.query_layers, self.key_layers)):
+                attribute_tensor = attribute_table[i].squeeze(-2)
+                attribute_query_layer = self.transpose_for_scores_attribute(attribute_query(attribute_tensor[0]),i)
+                attribute_key_layer = self.transpose_for_scores_attribute(attribute_key(attribute_tensor[1]),i)
+                attribute_attention_scores = torch.matmul(attribute_query_layer, attribute_key_layer.transpose(-1, -2))
+                attribute_attention_table.append(attribute_attention_scores.unsqueeze(-2))
+            attribute_attention_table = torch.cat(attribute_attention_table,dim=-2)
+            table_shape = attribute_attention_table.shape
+            feat_atten_num, attention_size = table_shape[-2], table_shape[-1]
+            
+            if self.fusion_type == 'sum':
+                attention_scores = torch.sum(attribute_attention_table, dim=-2)
+                attention_scores = attention_scores + item_attention_scores
+            elif self.fusion_type == 'concat':
+                attention_scores = attribute_attention_table.view(table_shape[:-2] + (feat_atten_num * attention_size,))
+                attention_scores = torch.cat([attention_scores, item_attention_scores], dim=-1)
+                attention_scores = self.fusion_layer(attention_scores)
+            elif self.fusion_type == 'gate':
+                attention_scores = torch.cat(
+                    [attribute_attention_table, item_attention_scores.unsqueeze(-2).unsqueeze(-2)], dim=-2)
+                attention_scores,_ = self.fusion_layer(attention_scores)
 
-        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
-        # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
-        # [batch_size heads seq_len seq_len] scores
-        # [batch_size 1 1 seq_len]
+            attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+            # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
+            # [batch_size heads seq_len seq_len] scores
+            # [batch_size 1 1 seq_len]
 
-        attention_scores = attention_scores + attention_mask
+            attention_scores = attention_scores + attention_mask
 
-        # Normalize the attention scores to probabilities.
-        attention_probs = nn.Softmax(dim=-1)(attention_scores)
+            # Normalize the attention scores to probabilities.
+            attention_probs = nn.Softmax(dim=-1)(attention_scores)
+        else:
+            attention_scores = item_attention_scores
+            attention_scores = attention_scores + attention_mask
+            attention_probs = nn.Softmax(dim=-1)(attention_scores)
 
         # This is actually dropping out entire tokens to attend to, which might
         # seem a bit unusual, but is taken from the original Transformer paper.
