@@ -55,7 +55,7 @@ def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_m
         buy_am = np.zeros([maxlen], dtype=np.float32)
         clac_hlv_nm = np.zeros([maxlen], dtype=np.int32)
         clac_mcls_nm = np.zeros([maxlen], dtype=np.int32)
-        pd_nm = np.zeros([maxlen], dtype=np.int32)
+        cop_c = np.zeros([maxlen], dtype=np.int32)
         chnl_dv = np.zeros([maxlen], dtype=np.int32)
         de_dt_month = np.zeros([maxlen], dtype=np.int32)
         ma_fem_dv = np.zeros([maxlen], dtype=np.int32)
@@ -73,7 +73,7 @@ def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_m
             buy_am[idx] = i[2]
             clac_hlv_nm[idx] = i[3]
             clac_mcls_nm[idx] = i[4]
-            pd_nm[idx] = i[5]
+            cop_c[idx] = i[5]
             chnl_dv[idx] = i[6]
             de_dt_month[idx] = i[7]
             ma_fem_dv[idx] = i[8]
@@ -85,7 +85,7 @@ def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_m
             idx -= 1
             if idx == -1: break
         time_matrix = relation_matrix[user]
-        return (user, seq, time_seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
+        return (user, seq, time_seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
 
     np.random.seed(SEED)
     while True:
@@ -194,9 +194,9 @@ def data_partition_no_valid(fname):
     item_count = defaultdict(int)
     for line in f:
         try:
-            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         except:
-            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         u = int(u)
         i = int(i)
         user_count[u]+=1
@@ -205,16 +205,16 @@ def data_partition_no_valid(fname):
     f = open('../data/%s.txt' % fname, 'r') # try?...ugly data pre-processing code
     for line in f:
         try:
-            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         except:
-            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         u = int(u)
         i = int(i)
         timestamp = float(timestamp)
         buy_am = float(buy_am)
         clac_hlv_nm = int(clac_hlv_nm)
         clac_mcls_nm = int(clac_mcls_nm)
-        pd_nm = int(pd_nm)
+        cop_c = int(cop_c)
         chnl_dv = int(chnl_dv)
         de_dt_month = int(de_dt_month)
         ma_fem_dv = int(ma_fem_dv)
@@ -223,7 +223,7 @@ def data_partition_no_valid(fname):
         if user_count[u]<5 or item_count[i]<5: # hard-coded
             continue
         time_set.add(timestamp)
-        User[u].append([i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv])
+        User[u].append([i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv])
     f.close()
     time_map = timeSlice(time_set)
     User, usernum, itemnum, timenum = cleanAndsort(User, time_map)
@@ -259,9 +259,9 @@ def data_partition_with_valid(fname):
     item_count = defaultdict(int)
     for line in f:
         try:
-            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         except:
-            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         u = int(u)
         i = int(i)
         user_count[u]+=1
@@ -270,16 +270,16 @@ def data_partition_with_valid(fname):
     f = open('../data/%s.txt' % fname, 'r') # try?...ugly data pre-processing code
     for line in f:
         try:
-            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, rating, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         except:
-            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
+            u, i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = line.rstrip().split('\t')
         u = int(u)
         i = int(i)
         timestamp = float(timestamp)
         buy_am = float(buy_am)
         clac_hlv_nm = int(clac_hlv_nm)
         clac_mcls_nm = int(clac_mcls_nm)
-        pd_nm = int(pd_nm)
+        cop_c = int(cop_c)
         chnl_dv = int(chnl_dv)
         de_dt_month = int(de_dt_month)
         ma_fem_dv = int(ma_fem_dv)
@@ -288,7 +288,7 @@ def data_partition_with_valid(fname):
         if user_count[u]<5 or item_count[i]<5: # hard-coded
             continue
         time_set.add(timestamp)
-        User[u].append([i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv])
+        User[u].append([i, timestamp, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv])
     f.close()
     time_map = timeSlice(time_set)
     User, usernum, itemnum, timenum = cleanAndsort(User, time_map)

@@ -22,20 +22,20 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
 
         pbar = tqdm(range(num_batch), total=num_batch)
         for step in pbar:
-            u, seq, time_seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg = sampler.next_batch() # tuples to ndarray
+            u, seq, time_seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg = sampler.next_batch() # tuples to ndarray
             u, seq, pos, neg = np.array(u), np.array(seq), np.array(pos), np.array(neg)
             if args.model.name == "TiSASRec":
                 time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
             elif args.model.name == "TiSASRecwithAux":
                 time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
-                buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = np.array(buy_am), np.array(clac_hlv_nm), np.array(clac_mcls_nm), np.array(pd_nm), np.array(chnl_dv), np.array(de_dt_month), np.array(ma_fem_dv), np.array(ages), np.array(zon_hlv)
+                buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = np.array(buy_am), np.array(clac_hlv_nm), np.array(clac_mcls_nm), np.array(cop_c), np.array(chnl_dv), np.array(de_dt_month), np.array(ma_fem_dv), np.array(ages), np.array(zon_hlv)
 
             if args.model.name == "TiSASRec":
                 pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
             elif args.model.name == "SASRec":
                 pos_logits, neg_logits = model(u, seq, pos, neg)
             elif args.model.name == "TiSASRecwithAux":
-                pos_logits, neg_logits = model(u, seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
+                pos_logits, neg_logits = model(u, seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
 
             pos_labels, neg_labels = torch.ones(pos_logits.shape, device=args.device), torch.zeros(neg_logits.shape, device=args.device)
             # print("\neye ball check raw_logits:"); print(pos_logits); print(neg_logits) # check pos_logits > 0, neg_logits < 0
@@ -132,7 +132,7 @@ def evaluate(model, dataset, args):
             buy_am = np.zeros([args.model.args.maxlen], dtype=np.int32)
             clac_hlv_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
             clac_mcls_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            pd_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
+            cop_c = np.zeros([args.model.args.maxlen], dtype=np.int32)
             chnl_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
             de_dt_month = np.zeros([args.model.args.maxlen], dtype=np.int32)
             ma_fem_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
@@ -148,7 +148,7 @@ def evaluate(model, dataset, args):
                 buy_am[idx] = valid[u][0][2]
                 clac_hlv_nm[idx] = valid[u][0][3]
                 clac_mcls_nm[idx] = valid[u][0][4]
-                pd_nm[idx] = valid[u][0][5]
+                cop_c[idx] = valid[u][0][5]
                 chnl_dv[idx] = valid[u][0][6]
                 de_dt_month[idx] = valid[u][0][7]
                 ma_fem_dv[idx] = valid[u][0][8]
@@ -163,7 +163,7 @@ def evaluate(model, dataset, args):
                 buy_am[idx] = i[2]
                 clac_hlv_nm[idx] = i[3]
                 clac_mcls_nm[idx] = i[4]
-                pd_nm[idx] = i[5]
+                cop_c[idx] = i[5]
                 chnl_dv[idx] = i[6]
                 de_dt_month[idx] = i[7]
                 ma_fem_dv[idx] = i[8]
@@ -190,7 +190,7 @@ def evaluate(model, dataset, args):
         elif args.model.name == "TiSASRec":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], item_idx]])
         elif args.model.name == "TiSASRecwithAux":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [pd_nm], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 
@@ -224,7 +224,7 @@ def evaluate_valid(model, dataset, args):
             buy_am = np.zeros([args.model.args.maxlen], dtype=np.int32)
             clac_hlv_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
             clac_mcls_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            pd_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
+            cop_c = np.zeros([args.model.args.maxlen], dtype=np.int32)
             chnl_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
             de_dt_month = np.zeros([args.model.args.maxlen], dtype=np.int32)
             ma_fem_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
@@ -240,7 +240,7 @@ def evaluate_valid(model, dataset, args):
                 buy_am[idx] = i[2]
                 clac_hlv_nm[idx] = i[3]
                 clac_mcls_nm[idx] = i[4]
-                pd_nm[idx] = i[5]
+                cop_c[idx] = i[5]
                 chnl_dv[idx] = i[6]
                 de_dt_month[idx] = i[7]
                 ma_fem_dv[idx] = i[8]
@@ -266,7 +266,7 @@ def evaluate_valid(model, dataset, args):
         elif args.model.name == "TiSASRec":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], item_idx]])
         elif args.model.name == "TiSASRecwithAux":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [pd_nm], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 

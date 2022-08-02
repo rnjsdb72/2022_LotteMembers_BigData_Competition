@@ -249,6 +249,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         self.clac_hlv_nm_K_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
         self.clac_mcls_nm_Q_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
         self.clac_mcls_nm_K_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
+        self.cop_c_Q_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
+        self.cop_c_K_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
         buy_am_n_chnl_dv_input_dim = int(args.model.aux_info.buy_am) + int(args.model.aux_info.chnl_dv)
         self.buy_am_n_chnl_dv_Q = torch.nn.Linear(buy_am_n_chnl_dv_input_dim, args.model.args.seq_attr_hidden_units)
         self.buy_am_n_chnl_dv_K = torch.nn.Linear(buy_am_n_chnl_dv_input_dim, args.model.args.seq_attr_hidden_units)
@@ -269,6 +271,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         self.clac_hlv_nm_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.clac_mcls_nm_Q_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.clac_mcls_nm_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
+        self.cop_c_Q_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
+        self.cop_c_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.buy_am_n_chnl_dv_Q_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.buy_am_n_chnl_dv_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
 
@@ -281,7 +285,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         self.last_layernorm = torch.nn.LayerNorm(args.model.args.hidden_units, eps=1e-8)
 
         self.seq_feat_num = int((self.args.model.aux_info.buy_am) or (self.args.model.aux_info.chnl_dv)) + int(self.args.model.aux_info.clac_hlv_nm) +\
-                             int(self.args.model.aux_info.clac_mcls_nm)
+                             int(self.args.model.aux_info.clac_mcls_nm) + int(self.args.model.aux_info.cop_c)
         self.trm_encoder = DIFTransformerEncoder(
             n_layers = args.model.args.num_blocks,
             n_heads = args.model.args.num_heads,
@@ -327,7 +331,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
         return extended_attention_mask
 
-    def seq2feats(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv):
+    def seq2feats(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv):
         seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
         seqs *= self.item_emb.embedding_dim ** 0.5
         seqs = self.item_emb_dropout(seqs)
@@ -366,6 +370,14 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             clac_mcls_nm_K_ = self.clac_mcls_nm_K_dropout(clac_mcls_nm_K_)
             clac_mcls_nm_attr = torch.stack([clac_mcls_nm_Q_, clac_mcls_nm_K_])
             feature_table.append(clac_mcls_nm_attr)
+
+        if (self.args.model.aux_info.cop_c == True):
+            cop_c_Q_ = self.cop_c_Q_emb(torch.LongTensor(cop_c).to(self.dev))
+            cop_c_K_ = self.cop_c_K_emb(torch.LongTensor(cop_c).to(self.dev))
+            cop_c_Q_ = self.cop_c_Q_dropout(cop_c_Q_)
+            cop_c_K_ = self.cop_c_K_dropout(cop_c_K_)
+            cop_c_attr = torch.stack([cop_c_Q_, cop_c_K_])
+            feature_table.append(cop_c_attr)
 
         if (self.args.model.aux_info.buy_am == True) & (self.args.model.aux_info.chnl_dv == True):
             am_chnl = np.concatenate([buy_am.reshape(-1, self.maxlen, 1), chnl_dv.reshape(-1, self.maxlen, 1)], axis=-1)
@@ -421,8 +433,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             output = self.userMLP(input)
             return output
 
-    def forward(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos_seqs, neg_seqs): # for training
-        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
+    def forward(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos_seqs, neg_seqs): # for training
+        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
         if self.num_user_aux != 0:
             output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
             output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
@@ -449,8 +461,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
 
         return pos_logits, neg_logits # pos_pred, neg_pred
 
-    def predict(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_indices): # for inference
-        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, pd_nm, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
+    def predict(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_indices): # for inference
+        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
         if self.num_user_aux != 0:
             output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
             output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
