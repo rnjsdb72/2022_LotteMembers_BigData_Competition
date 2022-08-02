@@ -140,20 +140,21 @@ def evaluate(model, dataset, args):
             zon_hlv = np.zeros([args.model.args.maxlen], dtype=np.int32)
         idx = args.model.args.maxlen - 1
         
-        seq[idx] = test[u][0][0]
-        if args.model.name != "SASRec":
-            time_seq[idx] = test[u][0][1]
-        if args.model.name == "TiSASRecwithAux":
-            buy_am[idx] = test[u][0][2]
-            clac_hlv_nm[idx] = test[u][0][3]
-            clac_mcls_nm[idx] = test[u][0][4]
-            pd_nm[idx] = test[u][0][5]
-            chnl_dv[idx] = test[u][0][6]
-            de_dt_month[idx] = test[u][0][7]
-            ma_fem_dv[idx] = test[u][0][8]
-            ages[idx] = test[u][0][9]
-            zon_hlv[idx] = test[u][0][10]
-        idx -= 1
+        if args.validation == True:
+            seq[idx] = valid[u][0][0]
+            if args.model.name != "SASRec":
+                time_seq[idx] = valid[u][0][1]
+            if args.model.name == "TiSASRecwithAux":
+                buy_am[idx] = valid[u][0][2]
+                clac_hlv_nm[idx] = valid[u][0][3]
+                clac_mcls_nm[idx] = valid[u][0][4]
+                pd_nm[idx] = valid[u][0][5]
+                chnl_dv[idx] = valid[u][0][6]
+                de_dt_month[idx] = valid[u][0][7]
+                ma_fem_dv[idx] = valid[u][0][8]
+                ages[idx] = valid[u][0][9]
+                zon_hlv[idx] = valid[u][0][10]
+            idx -= 1
         for i in reversed(train[u]):
             seq[idx] = i[0]
             if args.model.name != "SASRec":
