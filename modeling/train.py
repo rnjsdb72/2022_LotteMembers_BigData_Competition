@@ -22,20 +22,27 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
 
         pbar = tqdm(range(num_batch), total=num_batch)
         for step in pbar:
-            u, seq, time_seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg = sampler.next_batch() # tuples to ndarray
+            u, seq, time_seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg = sampler.next_batch() # tuples to ndarray
             u, seq, pos, neg = np.array(u), np.array(seq), np.array(pos), np.array(neg)
             if args.model.name == "TiSASRec":
                 time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
+            elif args.model.name == "TiSASReconlyCTI":
+                time_seq, time_matrix = np.array(time_seq), np.array(time_matrix_c)
             elif args.model.name == "TiSASRecwithAux":
                 time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
                 buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = np.array(buy_am), np.array(clac_hlv_nm), np.array(clac_mcls_nm), np.array(cop_c), np.array(chnl_dv), np.array(de_dt_month), np.array(ma_fem_dv), np.array(ages), np.array(zon_hlv)
+            elif args.model.name == "TiSASRecwithCTI":
+                time_seq, time_matrix, time_matrix_c = np.array(time_seq), np.array(time_matrix), np.array(time_matrix_c)
 
-            if args.model.name == "TiSASRec":
+
+            if (args.model.name == "TiSASRec" or args.model.name == "TiSASReconlyCTI"):
                 pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
             elif args.model.name == "SASRec":
                 pos_logits, neg_logits = model(u, seq, pos, neg)
             elif args.model.name == "TiSASRecwithAux":
                 pos_logits, neg_logits = model(u, seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
+            elif args.model.name == "TiSASRecwithCTI":
+                pos_logits, neg_logits = model(u, seq, time_matrix, time_matrix_c, pos, neg)
 
             pos_labels, neg_labels = torch.ones(pos_logits.shape, device=args.device), torch.zeros(neg_logits.shape, device=args.device)
             # print("\neye ball check raw_logits:"); print(pos_logits); print(neg_logits) # check pos_logits > 0, neg_logits < 0
@@ -51,6 +58,23 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
                 for param in model.abs_pos_V_emb.parameters(): loss += args.l2_emb * torch.norm(param)
                 for param in model.time_matrix_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
                 for param in model.time_matrix_V_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+            if args.model.name == "TiSASRecwithCTI":
+                for param in model.time_matrix_c_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.time_matrix_c_V_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+            if args.model.name == "TiSASRecwithAux":
+                for param in model.clac_hlv_nm_Q_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.clac_hlv_nm_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.clac_mcls_nm_Q_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.clac_mcls_nm_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.cop_c_Q_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.cop_c_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.buy_am_n_chnl_dv_Q.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.buy_am_n_chnl_dv_K.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.user_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.ma_fem_dv_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.ages_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.zon_hlv_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.de_dt_month_emb.parameters(): loss += args.l2_emb * torch.norm(param)
 
             loss.backward()
             optimizer.step()
@@ -90,12 +114,14 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
                     fname = 'SASRec.total_epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.epoch={}.validation={}.pth'
                     fname = fname.format(args.num_epochs, args.optimizer.args.lr, args.model.args.num_blocks, 
                                     args.model.args.num_heads, args.model.args.hidden_units, args.model.args.maxlen, epoch, str(args.validation))
-                elif args.model.name == "TiSASRecwithAux":
-                    fname = 'TiSASRecwithAux.total_epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.seq_attr_hidden_units={}.user_attr_emb_size={}.num_layers_user_aux={}.inner_size={}.fusion_type_item={}.fusion_type_final={}.epoch={}.validation={}.pth'
+                elif args.model.name == "TiSASReconlyCTI":
+                    fname = 'TiSASReconlyCTI.total_epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.epoch={}.validation={}.pth'
                     fname = fname.format(args.num_epochs, args.optimizer.args.lr, args.model.args.num_blocks, 
-                                    args.model.args.num_heads, args.model.args.hidden_units, args.model.args.maxlen,
-                                    args.model.args.seq_attr_hidden_units, args.model.args.user_attr_emb_size, args.model.args.num_layers_user_aux,
-                                    args.model.args.inner_size, args.model.args.fusion_type_item, args.model.args.fusion_type_final, epoch, str(args.validation))
+                                    args.model.args.num_heads, args.model.args.hidden_units, args.model.args.maxlen, epoch, str(args.validation))
+                elif args.model.name == "TiSASRecwithCTI":
+                    fname = 'TiSASRecwithCTI.total_epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.epoch={}.validation={}.pth'
+                    fname = fname.format(args.num_epochs, args.optimizer.args.lr, args.model.args.num_blocks, 
+                                    args.model.args.num_heads, args.model.args.hidden_units, args.model.args.maxlen, epoch, str(args.validation))
                 torch.save(model.state_dict(), os.path.join(folder, fname))
 
                 if len(os.listdir(folder)) > 3:
@@ -181,16 +207,22 @@ def evaluate(model, dataset, args):
             t = np.random.randint(1, itemnum + 1)
             while t in rated: t = np.random.randint(1, itemnum + 1)
             item_idx.append(t)
-    
-        if args.model.name != "SASRec":
+        
+        if args.model.name == "TiSASReconlyCTI":
+            time_matrix = computeRePos_c(time_seq, args.model.args.time_span)
+        elif args.model.name != "SASRec":
             time_matrix = computeRePos(time_seq, args.model.args.time_span)
+        if args.model.name == "TiSASRecwithCTI":
+            time_matrix_c = computeRePos_c(time_seq, args.model.args.time_span)
 
         if args.model.name == "SASRec":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], item_idx]])
-        elif args.model.name == "TiSASRec":
+        elif (args.model.name == "TiSASRec" or args.model.name == "TiSASReconlyCTI"):
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], item_idx]])
         elif args.model.name == "TiSASRecwithAux":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+        elif args.model.name == "TiSASRecwithCTI":
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 
@@ -258,15 +290,21 @@ def evaluate_valid(model, dataset, args):
             while t in rated: t = np.random.randint(1, itemnum + 1)
             item_idx.append(t)
 
-        if args.model.name != "SASRec":
+        if args.model.name == "TiSASReconlyCTI":
+            time_matrix = computeRePos_c(time_seq, args.model.args.time_span)
+        elif args.model.name != "SASRec":
             time_matrix = computeRePos(time_seq, args.model.args.time_span)
+        if args.model.name == "TiSASRecwithCTI":
+            time_matrix_c = computeRePos_c(time_seq, args.model.args.time_span)
 
         if args.model.name == "SASRec":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], item_idx]])
-        elif args.model.name == "TiSASRec":
+        elif (args.model.name == "TiSASRec" or args.model.name == "TiSASReconlyCTI"):
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], item_idx]])
         elif args.model.name == "TiSASRecwithAux":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+        elif args.model.name == "TiSASRecwithCTI":
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 

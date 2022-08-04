@@ -46,9 +46,14 @@ def main():
     except:
         relation_matrix = Relation(user_train, usernum, args.model.args.maxlen, args.model.args.time_span)
         pickle.dump(relation_matrix, open('../data/relation_matrix_%s_%d_%d.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span),'wb'))
+    try:
+        relation_matrix_c = pickle.load(open('../data/relation_matrix_c_%s_%d_%d.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span),'rb'))
+    except:
+        relation_matrix_c = Relation_c(user_train, usernum, args.model.args.maxlen, args.model.args.time_span)
+        pickle.dump(relation_matrix_c, open('../data/relation_matrix_c_%s_%d_%d.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span),'wb'))
 
     # 모델과 샘플러 불러오기
-    sampler = WarpSampler(user_train, usernum, itemnum, relation_matrix, batch_size=args.batch_size, maxlen=args.model.args.maxlen, n_workers=3)
+    sampler = WarpSampler(user_train, usernum, itemnum, relation_matrix, relation_matrix_c, batch_size=args.batch_size, maxlen=args.model.args.maxlen, n_workers=3)
     model_module = getattr(import_module("model"), args.model.name)
     if args.model.name != 'SASRec':
         model = model_module(usernum, itemnum, itemnum, args).to(args.device)

@@ -30,6 +30,31 @@ def computeRePos(time_seq, time_span):
                 time_matrix[i][j] = span
     return time_matrix
 
+def computeRePos_c(time_seq, time_span, date=None):
+    """
+    Caculate Relative Time Interval with Current Date Matrix
+    """
+    size = time_seq.shape[0]
+    if date != None:
+        time_matrix = np.zeros([size], dtype=np.int32)
+        for i in range(size):
+            span = abs(round((date-time_seq[i])/(60*60)))
+            if span > time_span:
+                time_matrix[i] = time_span
+            else:
+                time_matrix[i] = span
+        time_matrix = np.tile(time_matrix, (1,size))
+    else:
+        time_matrix = np.zeros([size, size], dtype=np.int32)
+        for i in range(size-1):
+            for j in range(size):
+                span = abs(round(time_seq[i+1] - time_seq[j]))
+                if span > time_span:
+                    time_matrix[i] = time_span
+                else:
+                    time_matrix[i] = span
+    return time_matrix
+
 def Relation(user_train, usernum, maxlen, time_span):
     """
     Caculate Relation Time Interval Embedding
@@ -45,7 +70,22 @@ def Relation(user_train, usernum, maxlen, time_span):
         data_train[user] = computeRePos(time_seq, time_span)
     return data_train
 
-def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_matrix, result_queue, SEED):
+def Relation_c(user_train, usernum, maxlen, time_span):
+    """
+    Caculate Relation Time Interval Embedding
+    """
+    data_train = dict()
+    for user in tqdm(range(1, usernum+1), desc='Preparing relation matrix'):
+        time_seq = np.zeros([maxlen], dtype=np.int32)
+        idx = maxlen - 1
+        for i in reversed(user_train[user][:-1]):
+            time_seq[idx] = i[1]
+            idx -= 1
+            if idx == -1: break
+        data_train[user] = computeRePos_c(time_seq, time_span)
+    return data_train
+
+def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_matrix, relation_matrix_c, result_queue, SEED):
     def sample(user):
         """
         Sampling dataset
@@ -85,7 +125,8 @@ def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_m
             idx -= 1
             if idx == -1: break
         time_matrix = relation_matrix[user]
-        return (user, seq, time_seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
+        time_matrix_c = relation_matrix_c[user]
+        return (user, seq, time_seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
 
     np.random.seed(SEED)
     while True:
@@ -98,7 +139,7 @@ def sample_function(user_train, usernum, itemnum, batch_size, maxlen, relation_m
         result_queue.put(zip(*one_batch))
 
 class WarpSampler(object):
-    def __init__(self, User, usernum, itemnum, relation_matrix, batch_size=64, maxlen=10,n_workers=1):
+    def __init__(self, User, usernum, itemnum, relation_matrix, relation_matrix_c, batch_size=64, maxlen=10,n_workers=1):
         self.result_queue = Queue(maxsize=n_workers * 10)
         self.processors = []
         for i in range(n_workers):
@@ -109,6 +150,7 @@ class WarpSampler(object):
                                                       batch_size,
                                                       maxlen,
                                                       relation_matrix,
+                                                      relation_matrix_c,
                                                       self.result_queue,
                                                       np.random.randint(2e9)
                                                       )))
