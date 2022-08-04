@@ -17,6 +17,21 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
     t0 = time.time()
     best_hr = 0
 
+    try:
+        print('Loading DataLoader')
+        test_loader = joblib.load('../data/eval_dataloader_test_%s_%d_%d_%s.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span, str(args.validation)))
+        print('Complete Load DataLoader')
+    except:
+        test_loader = evaluate_dataloader_test(dataset, args)
+
+    if args.validation:    
+        try:
+            print('Loading DataLoader')
+            valid_loader = joblib.load('../data/eval_dataloader_valid_%s_%d_%d_%s.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span, str(args.validation)))
+            print('Complete Load DataLoader')
+        except:
+            valid_loader = evaluate_dataloader_valid(dataset, args)
+
     # 학습
     for epoch in range(epoch_start_idx, args.num_epochs + 1):
         if args.inference_only: break # just to decrease identition
@@ -89,9 +104,9 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
             t1 = time.time() - t0
             T += t1
             print('Evaluating')
-            t_test = evaluate(model, dataset, args)
+            t_test = evaluate(model, test_loader, dataset, args)
             if args.validation == True:
-                t_valid = evaluate_valid(model, dataset, args)
+                t_valid = evaluate_valid(model, valid_loader, dataset, args)
                 print('Epoch:%d, Time: %f(s), Validation (NDCG@%d: %.4f, HR@%d: %.4f), Test (NDCG@%d: %.4f, HR@%d: %.4f)'
                     % (epoch, T, args.topk, t_valid[0], args.topk, t_valid[1], args.topk, t_test[0], args.topk, t_test[1]))
             else:
@@ -135,7 +150,7 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
             t0 = time.time()
             model.train()
 
-def evaluate(model, dataset, args):
+def evaluate(model, loader, dataset, args):
     if args.validation == False:
         [train, test, usernum, itemnum, timenum] = copy.deepcopy(dataset)
     elif args.validation == True:
@@ -144,13 +159,6 @@ def evaluate(model, dataset, args):
     NDCG = 0.0
     HT = 0.0
     valid_user = 0.0
-
-    try:
-        print('Loading DataLoader')
-        loader = joblib.load('../data/eval_dataloader_test_%s_%d_%d_%s.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span, str(args.validation)))
-        print('Complete Load DataLoader')
-    except:
-        loader = evaluate_dataloader_test(dataset, args)
 
     users = range(1, usernum + 1)
     pbar = tqdm(users, total=len(users))
@@ -177,7 +185,7 @@ def evaluate(model, dataset, args):
 
     return NDCG / valid_user, HT / valid_user
 
-def evaluate_valid(model, dataset, args):
+def evaluate_valid(model, loader, dataset, args):
     if args.validation == False:
         [train, test, usernum, itemnum, timenum] = copy.deepcopy(dataset)
     elif args.validation == True:
@@ -186,13 +194,6 @@ def evaluate_valid(model, dataset, args):
     NDCG = 0.0
     valid_user = 0.0
     HT = 0.0
-
-    try:
-        print('Loading DataLoader')
-        loader = joblib.load('../data/eval_dataloader_valid_%s_%d_%d_%s.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span, str(args.validation)))
-        print('Complete Load DataLoader')
-    except:
-        loader = evaluate_dataloader_valid(dataset, args)
 
     users = range(1, usernum + 1)
     pbar = tqdm(users, total=len(users))
