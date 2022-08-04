@@ -222,7 +222,7 @@ def evaluate(model, dataset, args):
         elif args.model.name == "TiSASRecwithAux":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
         elif args.model.name == "TiSASRecwithCTI":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 
@@ -304,7 +304,7 @@ def evaluate_valid(model, dataset, args):
         elif args.model.name == "TiSASRecwithAux":
             predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
         elif args.model.name == "TiSASRecwithCTI":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 
