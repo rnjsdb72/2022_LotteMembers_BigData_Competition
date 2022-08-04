@@ -45,7 +45,7 @@ def train(model, optimizer, criterion, scheduler, sampler, dataset, f, num_batch
             elif args.model.name == "TiSASReconlyCTI":
                 time_seq, time_matrix = np.array(time_seq), np.array(time_matrix_c)
             elif args.model.name == "TiSASRecwithAux":
-                time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
+                time_seq, time_matrix = np.array(time_seq), np.array(time_matrix_c)
                 buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv = np.array(buy_am), np.array(clac_hlv_nm), np.array(clac_mcls_nm), np.array(cop_c), np.array(chnl_dv), np.array(de_dt_month), np.array(ma_fem_dv), np.array(ages), np.array(zon_hlv)
             elif args.model.name == "TiSASRecwithCTI":
                 time_seq, time_matrix, time_matrix_c = np.array(time_seq), np.array(time_matrix), np.array(time_matrix_c)
@@ -178,7 +178,7 @@ def evaluate(model, loader, dataset, args):
         elif args.model.name == "TiSASReconlyCTI":
             predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix_c, item_idx]])
         elif args.model.name == "TiSASRecwithAux":
-            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx]])
         elif args.model.name == "TiSASRecwithCTI":
             predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, time_matrix_c, item_idx]])
         predictions = predictions[0]
@@ -214,7 +214,7 @@ def evaluate_valid(model, loader, dataset, args):
         elif args.model.name == "TiSASReconlyCTI":
             predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix_c, item_idx]])
         elif args.model.name == "TiSASRecwithAux":
-            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx]])
         elif args.model.name == "TiSASRecwithCTI":
             predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, time_matrix_c, item_idx]])
         predictions = predictions[0]
