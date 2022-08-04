@@ -10,6 +10,7 @@ import time
 import os
 from dataset import *
 from utils import *
+import joblib
 
 def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_start_idx, log_interval, args):
     T = 0.0
@@ -87,7 +88,7 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
             model.eval()
             t1 = time.time() - t0
             T += t1
-            print('Evaluating', end='')
+            print('Evaluating')
             t_test = evaluate(model, dataset, args)
             if args.validation == True:
                 t_valid = evaluate_valid(model, dataset, args)
@@ -144,85 +145,27 @@ def evaluate(model, dataset, args):
     HT = 0.0
     valid_user = 0.0
 
-    
+    try:
+        print('Loading DataLoader')
+        loader = joblib.load('../data/eval_dataloader_test_%s_%d_%d_%s.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span, str(args.validation)))
+        print('Complete Load DataLoader')
+    except:
+        loader = evaluate_dataloader_test(dataset, args)
+
     users = range(1, usernum + 1)
     pbar = tqdm(users, total=len(users))
     for u in pbar:
-
-        if len(train[u]) < 1 or len(test[u]) < 1: continue
-
-        seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        if args.model.name != "SASRec":
-            time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        if args.model.name == "TiSASRecwithAux":
-            buy_am = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            clac_hlv_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            clac_mcls_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            cop_c = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            chnl_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            de_dt_month = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            ma_fem_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            ages = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            zon_hlv = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        idx = args.model.args.maxlen - 1
-        
-        if args.validation == True:
-            seq[idx] = valid[u][0][0]
-            if args.model.name != "SASRec":
-                time_seq[idx] = valid[u][0][1]
-            if args.model.name == "TiSASRecwithAux":
-                buy_am[idx] = valid[u][0][2]
-                clac_hlv_nm[idx] = valid[u][0][3]
-                clac_mcls_nm[idx] = valid[u][0][4]
-                cop_c[idx] = valid[u][0][5]
-                chnl_dv[idx] = valid[u][0][6]
-                de_dt_month[idx] = valid[u][0][7]
-                ma_fem_dv[idx] = valid[u][0][8]
-                ages[idx] = valid[u][0][9]
-                zon_hlv[idx] = valid[u][0][10]
-            idx -= 1
-        for i in reversed(train[u]):
-            seq[idx] = i[0]
-            if args.model.name != "SASRec":
-                time_seq[idx] = i[1]
-            if args.model.name == "TiSASRecwithAux":
-                buy_am[idx] = i[2]
-                clac_hlv_nm[idx] = i[3]
-                clac_mcls_nm[idx] = i[4]
-                cop_c[idx] = i[5]
-                chnl_dv[idx] = i[6]
-                de_dt_month[idx] = i[7]
-                ma_fem_dv[idx] = i[8]
-                ages[idx] = i[9]
-                zon_hlv[idx] = i[10]
-            idx -= 1
-            if idx == -1: break
-        rated = set(map(lambda x: x[0],train[u]))
-        if args.validation == True:
-            rated.add(valid[u][0][0])
-        rated.add(test[u][0][0])
-        rated.add(0)
-        item_idx = [test[u][0][0]]
-        for _ in range(100):
-            t = np.random.randint(1, itemnum + 1)
-            while t in rated: t = np.random.randint(1, itemnum + 1)
-            item_idx.append(t)
-        
-        if args.model.name == "TiSASReconlyCTI":
-            time_matrix = computeRePos_c(time_seq, args.model.args.time_span)
-        elif args.model.name != "SASRec":
-            time_matrix = computeRePos(time_seq, args.model.args.time_span)
-        if args.model.name == "TiSASRecwithCTI":
-            time_matrix_c = computeRePos_c(time_seq, args.model.args.time_span)
-
+        u, seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx = loader[u]
         if args.model.name == "SASRec":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], item_idx]])
-        elif (args.model.name == "TiSASRec" or args.model.name == "TiSASReconlyCTI"):
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, item_idx]])
+        elif args.model.name == "TiSASRec":
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, item_idx]])
+        elif args.model.name == "TiSASReconlyCTI":
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix_c, item_idx]])
         elif args.model.name == "TiSASRecwithAux":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx]])
         elif args.model.name == "TiSASRecwithCTI":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, time_matrix_c, item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 
@@ -244,67 +187,28 @@ def evaluate_valid(model, dataset, args):
     valid_user = 0.0
     HT = 0.0
 
+    try:
+        print('Loading DataLoader')
+        loader = joblib.load('../data/eval_dataloader_valid_%s_%d_%d_%s.pickle'%(args.dataset, args.model.args.maxlen, args.model.args.time_span, str(args.validation)))
+        print('Complete Load DataLoader')
+    except:
+        loader = evaluate_dataloader_valid(dataset, args)
+
     users = range(1, usernum + 1)
     pbar = tqdm(users, total=len(users))
     for u in pbar:
-        if len(train[u]) < 1 or len(valid[u]) < 1: continue
-
-        seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        if args.model.name != "SASRec":
-            time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        if args.model.name == "TiSASRecwithAux":
-            buy_am = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            clac_hlv_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            clac_mcls_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            cop_c = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            chnl_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            de_dt_month = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            ma_fem_dv = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            ages = np.zeros([args.model.args.maxlen], dtype=np.int32)
-            zon_hlv = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        idx = args.model.args.maxlen - 1
-
-        for i in reversed(train[u]):
-            seq[idx] = i[0]
-            if args.model.name != "SASRec":
-                time_seq[idx] = i[1]
-            if args.model.name == "TiSASRecwithAux":
-                buy_am[idx] = i[2]
-                clac_hlv_nm[idx] = i[3]
-                clac_mcls_nm[idx] = i[4]
-                cop_c[idx] = i[5]
-                chnl_dv[idx] = i[6]
-                de_dt_month[idx] = i[7]
-                ma_fem_dv[idx] = i[8]
-                ages[idx] = i[9]
-                zon_hlv[idx] = i[10]
-            idx -= 1
-            if idx == -1: break
-
-        rated = set(map(lambda x: x[0], train[u]))
-        rated.add(valid[u][0][0])
-        rated.add(0)
-        item_idx = [valid[u][0][0]]
-        for _ in range(100):
-            t = np.random.randint(1, itemnum + 1)
-            while t in rated: t = np.random.randint(1, itemnum + 1)
-            item_idx.append(t)
-
-        if args.model.name == "TiSASReconlyCTI":
-            time_matrix = computeRePos_c(time_seq, args.model.args.time_span)
-        elif args.model.name != "SASRec":
-            time_matrix = computeRePos(time_seq, args.model.args.time_span)
-        if args.model.name == "TiSASRecwithCTI":
-            time_matrix_c = computeRePos_c(time_seq, args.model.args.time_span)
+        u, seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx = loader[u]
 
         if args.model.name == "SASRec":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], item_idx]])
-        elif (args.model.name == "TiSASRec" or args.model.name == "TiSASReconlyCTI"):
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, item_idx]])
+        elif args.model.name == "TiSASRec":
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, item_idx]])
+        elif args.model.name == "TiSASReconlyCTI":
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix_c, item_idx]])
         elif args.model.name == "TiSASRecwithAux":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [buy_am], [clac_hlv_nm], [clac_mcls_nm], [cop_c], [chnl_dv], [de_dt_month], [ma_fem_dv], [ages], [zon_hlv], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx]])
         elif args.model.name == "TiSASRecwithCTI":
-            predictions = -model.predict(*[np.array(l) for l in [[u], [seq], [time_matrix], [time_matrix_c], item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, time_matrix_c, item_idx]])
         predictions = predictions[0]
         rank = predictions.argsort().argsort()[0].item()
 
