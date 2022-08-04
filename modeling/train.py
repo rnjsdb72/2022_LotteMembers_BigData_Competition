@@ -12,7 +12,7 @@ from dataset import *
 from utils import *
 import joblib
 
-def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_start_idx, log_interval, args):
+def train(model, optimizer, criterion, scheduler, sampler, dataset, f, num_batch, epoch_start_idx, log_interval, args):
     T = 0.0
     t0 = time.time()
     best_hr = 0
@@ -148,6 +148,13 @@ def train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_sta
                 f.write(str(t_test) + '\n')
             f.flush()
             t0 = time.time()
+
+            if scheduler:
+                if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    scheduler.step(t_test[1])
+                else:
+                    scheduler.step()
+
             model.train()
 
 def evaluate(model, loader, dataset, args):

@@ -92,8 +92,11 @@ def main():
     optimizer_module = getattr(import_module("torch.optim"), args.optimizer.name)
     optimizer = optimizer_module(model.parameters(), **args.optimizer.args._asdict())
 
+    # scheduler 설정
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(mode = 'max', factor = 0.9, patience = 3)
+
     # 학습
-    train(model, optimizer, criterion, sampler, dataset, f, num_batch, epoch_start_idx, args.log_interval, args)
+    train(model, optimizer, criterion, scheduler, sampler, dataset, f, num_batch, epoch_start_idx, args.log_interval, args)
 
     f.close()
     sampler.close()
