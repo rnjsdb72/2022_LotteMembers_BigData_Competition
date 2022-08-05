@@ -680,7 +680,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         else:
             feature_table = None
 
-        same_time_mask = self.get_same_time_mask(torch.LongTensor(time_matrices).to(self.dev))
+        same_time_mask = self.get_same_time_mask(time_matrices)
         extended_attention_mask = self.get_attention_mask(torch.LongTensor(log_seqs).to(self.dev))
         trm_output = self.trm_encoder(seqs, feature_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V,
                                         extended_attention_mask, same_time_mask, timeline_mask, output_all_encoded_layers=True)
