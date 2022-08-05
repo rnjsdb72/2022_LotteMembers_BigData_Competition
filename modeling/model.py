@@ -501,6 +501,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         self.abs_pos_V_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.hidden_units)
         self.time_matrix_K_emb = torch.nn.Embedding(args.model.args.time_span+1, args.model.args.hidden_units)
         self.time_matrix_V_emb = torch.nn.Embedding(args.model.args.time_span+1, args.model.args.hidden_units)
+        self.time_matrix_c_K_emb = torch.nn.Embedding(args.model.args.time_span+1, args.model.args.hidden_units)
+        self.time_matrix_c_V_emb = torch.nn.Embedding(args.model.args.time_span+1, args.model.args.hidden_units)
 
         self.clac_hlv_nm_Q_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
         self.clac_hlv_nm_K_emb = torch.nn.Embedding(args.model.args.maxlen, args.model.args.seq_attr_hidden_units)
@@ -523,6 +525,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         self.abs_pos_V_emb_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.time_matrix_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.time_matrix_V_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
+        self.time_matrix_c_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
+        self.time_matrix_c_V_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
 
         self.clac_hlv_nm_Q_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.clac_hlv_nm_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
@@ -543,7 +547,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
 
         self.seq_feat_num = int((self.args.model.aux_info.buy_am) or (self.args.model.aux_info.chnl_dv)) + int(self.args.model.aux_info.clac_hlv_nm) +\
                              int(self.args.model.aux_info.clac_mcls_nm) + int(self.args.model.aux_info.cop_c)
-        self.trm_encoder = DIFTransformerEncoder(
+        self.trm_encoder = DIFTransformerEncoderwithCTI(
             n_layers = args.model.args.num_blocks,
             n_heads = args.model.args.num_heads,
             hidden_size = args.model.args.hidden_units,
@@ -588,7 +592,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
         return extended_attention_mask
 
-    def seq2feats(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv):
+    def seq2feats(self, user_ids, log_seqs, time_matrices, time_matrices_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv):
         seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
         seqs *= self.item_emb.embedding_dim ** 0.5
         seqs = self.item_emb_dropout(seqs)
@@ -605,6 +609,12 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         time_matrix_V = self.time_matrix_V_emb(time_matrices)
         time_matrix_K = self.time_matrix_K_dropout(time_matrix_K)
         time_matrix_V = self.time_matrix_V_dropout(time_matrix_V)
+
+        time_matrices_c = torch.LongTensor(time_matrices_c).to(self.dev)
+        time_matrix_c_K = self.time_matrix_c_K_emb(time_matrices_c)
+        time_matrix_c_V = self.time_matrix_c_V_emb(time_matrices_c)
+        time_matrix_c_K = self.time_matrix_c_K_dropout(time_matrix_c_K)
+        time_matrix_c_V = self.time_matrix_c_V_dropout(time_matrix_c_V)
 
         # mask 0th items(placeholder for dry-run) in log_seqs
         # would be easier if 0th item could be an exception for training
@@ -656,7 +666,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             feature_table = None
 
         extended_attention_mask = self.get_attention_mask(torch.LongTensor(log_seqs).to(self.dev))
-        trm_output = self.trm_encoder(seqs, feature_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V,
+        trm_output = self.trm_encoder(seqs, feature_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V,
                                         extended_attention_mask, timeline_mask, output_all_encoded_layers=True)
         output = trm_output[-1]
 
@@ -690,8 +700,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             output = self.userMLP(input)
             return output
 
-    def forward(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos_seqs, neg_seqs): # for training
-        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
+    def forward(self, user_ids, log_seqs, time_matrices, time_matrices_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos_seqs, neg_seqs): # for training
+        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, time_matrices_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
         if self.num_user_aux != 0:
             output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
             output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
@@ -718,8 +728,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
 
         return pos_logits, neg_logits # pos_pred, neg_pred
 
-    def predict(self, user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_indices): # for inference
-        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
+    def predict(self, user_ids, log_seqs, time_matrices, time_matrices_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_indices): # for inference
+        output_items = self.seq2feats(user_ids, log_seqs, time_matrices, time_matrices_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv)
         if self.num_user_aux != 0:
             output_useraux = self.useraux2feats(user_ids, ma_fem_dv, ages, zon_hlv, de_dt_month)
             output_useraux = torch.stack([output_useraux for i in range(output_items.shape[1])], dim=1)
