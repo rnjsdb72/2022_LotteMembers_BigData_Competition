@@ -138,6 +138,13 @@ def train(model, optimizer, criterion, scheduler, sampler, dataset, f, num_batch
                     fname = 'TiSASRecwithCTI.total_epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.epoch={}.validation={}.pth'
                     fname = fname.format(args.num_epochs, args.optimizer.args.lr, args.model.args.num_blocks, 
                                     args.model.args.num_heads, args.model.args.hidden_units, args.model.args.maxlen, epoch, str(args.validation))
+                elif args.model.name == "TiSASRecwithAux":
+                    fname = 'TiSASRecwithAux.total_epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.seq_attr_hidden_units={}.user_attr_emb_size={}.num_layers_user_aux={}.inner_size={}.fusion_type_item={}.fusion_type_final={}.epoch={}.validation={}.pth'
+                    fname = fname.format(args.num_epochs, args.optimizer.args.lr, args.model.args.num_blocks, 
+                                    args.model.args.num_heads, args.model.args.hidden_units, args.model.args.maxlen,
+                                    args.model.args.seq_attr_hidden_units, args.model.args.user_attr_emb_size,
+                                    args.model.args.num_layers_user_aux, args.model.args.inner_size, args.model.args.fusion_type_item,
+                                    args.model.args.fusion_type_final, epoch, str(args.validation))
                 torch.save(model.state_dict(), os.path.join(folder, fname))
 
                 if len(os.listdir(folder)) > 3:
