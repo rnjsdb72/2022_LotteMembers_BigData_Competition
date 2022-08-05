@@ -6,6 +6,7 @@ from module4model.module4tisasrec import *
 class SASRec(torch.nn.Module):
     def __init__(self, user_num, item_num, args):
         super(SASRec, self).__init__()
+        self.args = args
 
         self.user_num = user_num
         self.item_num = item_num
@@ -42,7 +43,7 @@ class SASRec(torch.nn.Module):
             # self.pos_sigmoid = torch.nn.Sigmoid()
             # self.neg_sigmoid = torch.nn.Sigmoid()
 
-    def log2feats(self, log_seqs):
+    def log2feats(self, log_seqs, time_matrices):
         seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
         seqs *= self.item_emb.embedding_dim ** 0.5
         positions = np.tile(np.array(range(log_seqs.shape[1])), [log_seqs.shape[0], 1])
@@ -54,6 +55,8 @@ class SASRec(torch.nn.Module):
 
         tl = seqs.shape[1] # time dim len for enforce causality
         attention_mask = ~torch.tril(torch.ones((tl, tl), dtype=torch.bool, device=self.dev))
+        same_time_mask = (torch.LongTensor(time_matrices) == 0)
+        attention_mask = (attention_mask & same_time_mask).repeat(self.args.model.args.num_heads, 1, 1)
 
         for i in range(len(self.attention_layers)):
             seqs = torch.transpose(seqs, 0, 1)
@@ -73,8 +76,8 @@ class SASRec(torch.nn.Module):
 
         return log_feats
 
-    def forward(self, user_ids, log_seqs, pos_seqs, neg_seqs): # for training        
-        log_feats = self.log2feats(log_seqs) # user_ids hasn't been used yet
+    def forward(self, user_ids, log_seqs, time_matrices, pos_seqs, neg_seqs): # for training        
+        log_feats = self.log2feats(log_seqs, time_matrices) # user_ids hasn't been used yet
 
         pos_embs = self.item_emb(torch.LongTensor(pos_seqs).to(self.dev))
         neg_embs = self.item_emb(torch.LongTensor(neg_seqs).to(self.dev))
@@ -87,8 +90,8 @@ class SASRec(torch.nn.Module):
 
         return pos_logits, neg_logits # pos_pred, neg_pred
 
-    def predict(self, user_ids, log_seqs, item_indices): # for inference
-        log_feats = self.log2feats(log_seqs) # user_ids hasn't been used yet
+    def predict(self, user_ids, log_seqs, time_matrices, item_indices): # for inference
+        log_feats = self.log2feats(log_seqs, time_matrices) # user_ids hasn't been used yet
 
         final_feat = log_feats[:, -1, :] # only use last QKV classifier, a waste
 
@@ -176,12 +179,14 @@ class TiSASRec(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         tl = seqs.shape[1] # time dim len for enforce causality
         attention_mask = ~torch.tril(torch.ones((tl, tl), dtype=torch.bool, device=self.dev))
 
+        same_time_mask = (time_matrices == 0)
+
         for i in range(len(self.attention_layers)):
             # Self-attention, Q=layernorm(seqs), K=V=seqs
             # seqs = torch.transpose(seqs, 0, 1) # (N, T, C) -> (T, N, C)
             Q = self.attention_layernorms[i](seqs) # PyTorch mha requires time first fmt
             mha_outputs = self.attention_layers[i](Q, seqs,
-                                            timeline_mask, attention_mask,
+                                            timeline_mask, attention_mask, same_time_mask,
                                             time_matrix_K, time_matrix_V,
                                             abs_pos_K, abs_pos_V)
             seqs = Q + mha_outputs
@@ -299,12 +304,14 @@ class TiSASReconlyCTI(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         tl = seqs.shape[1] # time dim len for enforce causality
         attention_mask = ~torch.tril(torch.ones((tl, tl), dtype=torch.bool, device=self.dev))
 
+        same_time_mask = (time_matrices == 0)
+
         for i in range(len(self.attention_layers)):
             # Self-attention, Q=layernorm(seqs), K=V=seqs
             # seqs = torch.transpose(seqs, 0, 1) # (N, T, C) -> (T, N, C)
             Q = self.attention_layernorms[i](seqs) # PyTorch mha requires time first fmt
             mha_outputs = self.attention_layers[i](Q, seqs,
-                                            timeline_mask, attention_mask,
+                                            timeline_mask, attention_mask, same_time_mask,
                                             time_matrix_K, time_matrix_V,
                                             abs_pos_K, abs_pos_V)
             seqs = Q + mha_outputs
@@ -432,12 +439,14 @@ class TiSASRecwithCTI(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         tl = seqs.shape[1] # time dim len for enforce causality
         attention_mask = ~torch.tril(torch.ones((tl, tl), dtype=torch.bool, device=self.dev))
 
+        same_time_mask = (time_matrices == 0)
+
         for i in range(len(self.attention_layers)):
             # Self-attention, Q=layernorm(seqs), K=V=seqs
             # seqs = torch.transpose(seqs, 0, 1) # (N, T, C) -> (T, N, C)
             Q = self.attention_layernorms[i](seqs) # PyTorch mha requires time first fmt
             mha_outputs = self.attention_layers[i](Q, seqs,
-                                            timeline_mask, attention_mask,
+                                            timeline_mask, attention_mask, same_time_mask,
                                             time_matrix_K, time_matrix_V,
                                             abs_pos_K, abs_pos_V,
                                             time_matrix_c_K, time_matrix_c_V)
@@ -577,6 +586,12 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             # self.pos_sigmoid = torch.nn.Sigmoid()
             # self.neg_sigmoid = torch.nn.Sigmoid()
 
+    def get_same_time_mask(self, time_matrix):
+        mask = (time_matrix == 0).long().unsqueeze(1)
+        mask = (mask==0).long()
+        same_time_mask = (mask * -2**32+1)
+        return same_time_mask
+
     def get_attention_mask(self, item_seq):
         """Generate left-to-right uni-directional attention mask for multi-head attention."""
         attention_mask = (item_seq > 0).long()
@@ -589,7 +604,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         subsequent_mask = subsequent_mask.long().to(item_seq.device)
         extended_attention_mask = extended_attention_mask * subsequent_mask
         extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype)  # fp16 compatibility
-        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+        extended_attention_mask = (1.0 - extended_attention_mask) * -2**32+1
         return extended_attention_mask
 
     def seq2feats(self, user_ids, log_seqs, time_matrices, time_matrices_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv):
@@ -665,9 +680,10 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         else:
             feature_table = None
 
+        same_time_mask = self.get_same_time_mask(torch.LongTensor(time_matrices).to(self.dev))
         extended_attention_mask = self.get_attention_mask(torch.LongTensor(log_seqs).to(self.dev))
         trm_output = self.trm_encoder(seqs, feature_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V,
-                                        extended_attention_mask, timeline_mask, output_all_encoded_layers=True)
+                                        extended_attention_mask, same_time_mask, timeline_mask, output_all_encoded_layers=True)
         output = trm_output[-1]
 
         return output

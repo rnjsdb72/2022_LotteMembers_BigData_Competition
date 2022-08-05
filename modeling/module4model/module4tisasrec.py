@@ -38,7 +38,7 @@ class TimeAwareMultiHeadAttention(torch.nn.Module):
         self.dropout_rate = dropout_rate
         self.dev = dev
 
-    def forward(self, queries, keys, time_mask, attn_mask, time_matrix_K, time_matrix_V, abs_pos_K, abs_pos_V):
+    def forward(self, queries, keys, time_mask, attn_mask, same_time_mask, time_matrix_K, time_matrix_V, abs_pos_K, abs_pos_V):
         Q, K, V = self.Q_w(queries), self.K_w(keys), self.V_w(keys)
 
         # head dim * batch dim for parallelization (h*N, T, C/h)
@@ -69,8 +69,10 @@ class TimeAwareMultiHeadAttention(torch.nn.Module):
         attn_mask = attn_mask.unsqueeze(0).expand(attn_weights.shape[0], -1, -1)
         paddings = torch.ones(attn_weights.shape) *  (-2**32+1) # -1e23 # float('-inf')
         paddings = paddings.to(self.dev)
+        same_time_mask = same_time_mask.repeat(self.head_num, 1, 1)
         attn_weights = torch.where(time_mask, paddings, attn_weights) # True:pick padding
         attn_weights = torch.where(attn_mask, paddings, attn_weights) # enforcing causality
+        attn_weights = torch.where(same_time_mask, paddings, attn_weights)
 
         attn_weights = self.softmax(attn_weights) # code as below invalids pytorch backward rules
         # attn_weights = torch.where(time_mask, paddings, attn_weights) # weird query mask in tf impl
@@ -104,7 +106,7 @@ class TimeAwareMultiHeadAttentionwithCTI(torch.nn.Module):
         self.dropout_rate = dropout_rate
         self.dev = dev
 
-    def forward(self, queries, keys, time_mask, attn_mask, time_matrix_K, time_matrix_V, abs_pos_K, abs_pos_V, time_matrix_c_K, time_matrix_c_V):
+    def forward(self, queries, keys, time_mask, attn_mask, same_time_mask, time_matrix_K, time_matrix_V, abs_pos_K, abs_pos_V, time_matrix_c_K, time_matrix_c_V):
         Q, K, V = self.Q_w(queries), self.K_w(keys), self.V_w(keys)
 
         # head dim * batch dim for parallelization (h*N, T, C/h)
@@ -138,8 +140,10 @@ class TimeAwareMultiHeadAttentionwithCTI(torch.nn.Module):
         attn_mask = attn_mask.unsqueeze(0).expand(attn_weights.shape[0], -1, -1)
         paddings = torch.ones(attn_weights.shape) *  (-2**32+1) # -1e23 # float('-inf')
         paddings = paddings.to(self.dev)
+        same_time_mask = same_time_mask.repeat(self.head_num, 1, 1)
         attn_weights = torch.where(time_mask, paddings, attn_weights) # True:pick padding
         attn_weights = torch.where(attn_mask, paddings, attn_weights) # enforcing causality
+        attn_weights = torch.where(same_time_mask, paddings, attn_weights)
 
         attn_weights = self.softmax(attn_weights) # code as below invalids pytorch backward rules
         # attn_weights = torch.where(time_mask, paddings, attn_weights) # weird query mask in tf impl

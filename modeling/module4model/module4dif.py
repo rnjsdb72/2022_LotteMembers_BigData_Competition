@@ -139,7 +139,7 @@ class DIFMultiHeadAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def forward(self, input_tensor, attribute_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, attention_mask, timeline_mask):
+    def forward(self, input_tensor, attribute_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, attention_mask, same_time_mask, timeline_mask):
         Q_ = self.transpose_for_scores(self.query(self.attention_layernorm(input_tensor)))
         K_ = self.transpose_for_scores(self.key(input_tensor))
         V_ = self.transpose_for_scores(self.value(input_tensor))
@@ -187,13 +187,13 @@ class DIFMultiHeadAttention(nn.Module):
             # [batch_size heads seq_len seq_len] scores
             # [batch_size 1 1 seq_len]
 
-            attention_scores = attention_scores + attention_mask
+            attention_scores = attention_scores + attention_mask + same_time_mask
 
             # Normalize the attention scores to probabilities.
             attention_probs = nn.Softmax(dim=-1)(attention_scores)
         else:
             attention_scores = item_attention_scores
-            attention_scores = attention_scores + attention_mask
+            attention_scores = attention_scores + attention_mask + same_time_mask
             attention_probs = nn.Softmax(dim=-1)(attention_scores)
 
         # This is actually dropping out entire tokens to attend to, which might
@@ -235,9 +235,9 @@ class DIFTransformerLayer(nn.Module):
         )
         self.feed_forward = FeedForward(hidden_size, intermediate_size, hidden_dropout_prob, hidden_act, layer_norm_eps)
 
-    def forward(self, hidden_states, attribute_embed, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, attention_mask, timeline_mask):
+    def forward(self, hidden_states, attribute_embed, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, attention_mask, same_time_mask, timeline_mask):
         attention_output = self.multi_head_attention(hidden_states, attribute_embed, abs_pos_K, abs_pos_V,
-                                                     time_matrix_K, time_matrix_V, attention_mask, timeline_mask)
+                                                     time_matrix_K, time_matrix_V, attention_mask, same_time_mask, timeline_mask)
         feedforward_output = self.feed_forward(attention_output)
         return feedforward_output
 
@@ -281,7 +281,7 @@ class DIFTransformerEncoder(nn.Module):
         self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(n_layers)])
 
     def forward(self, hidden_states, attribute_hidden_states, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V,
-                 attention_mask, timeline_mask, output_all_encoded_layers=True):
+                 attention_mask, same_time_mask, timeline_mask, output_all_encoded_layers=True):
         """
         Args:
             hidden_states (torch.Tensor): the input of the TransformerEncoder
@@ -294,7 +294,7 @@ class DIFTransformerEncoder(nn.Module):
         all_encoder_layers = []
         for layer_module in self.layer:
             hidden_states = layer_module(hidden_states, attribute_hidden_states,
-                                            abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, attention_mask, timeline_mask)
+                                            abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, attention_mask, same_time_mask, timeline_mask)
             if output_all_encoded_layers:
                 all_encoder_layers.append(hidden_states)
         if not output_all_encoded_layers:
@@ -364,7 +364,7 @@ class DIFMultiHeadAttentionwithCTI(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def forward(self, input_tensor, attribute_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, timeline_mask):
+    def forward(self, input_tensor, attribute_table, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, same_time_mask, timeline_mask):
         Q_ = self.transpose_for_scores(self.query(self.attention_layernorm(input_tensor)))
         K_ = self.transpose_for_scores(self.key(input_tensor))
         V_ = self.transpose_for_scores(self.value(input_tensor))
@@ -415,13 +415,13 @@ class DIFMultiHeadAttentionwithCTI(nn.Module):
             # [batch_size heads seq_len seq_len] scores
             # [batch_size 1 1 seq_len]
 
-            attention_scores = attention_scores + attention_mask
+            attention_scores = attention_scores + attention_mask + same_time_mask
 
             # Normalize the attention scores to probabilities.
             attention_probs = nn.Softmax(dim=-1)(attention_scores)
         else:
             attention_scores = item_attention_scores
-            attention_scores = attention_scores + attention_mask
+            attention_scores = attention_scores + attention_mask + same_time_mask
             attention_probs = nn.Softmax(dim=-1)(attention_scores)
 
         # This is actually dropping out entire tokens to attend to, which might
@@ -464,9 +464,9 @@ class DIFTransformerLayerwithCTI(nn.Module):
         )
         self.feed_forward = FeedForward(hidden_size, intermediate_size, hidden_dropout_prob, hidden_act, layer_norm_eps)
 
-    def forward(self, hidden_states, attribute_embed, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, timeline_mask):
+    def forward(self, hidden_states, attribute_embed, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, same_time_mask, timeline_mask):
         attention_output = self.multi_head_attention(hidden_states, attribute_embed, abs_pos_K, abs_pos_V,
-                                                     time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, timeline_mask)
+                                                     time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, same_time_mask, timeline_mask)
         feedforward_output = self.feed_forward(attention_output)
         return feedforward_output
 
@@ -510,7 +510,7 @@ class DIFTransformerEncoderwithCTI(nn.Module):
         self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(n_layers)])
 
     def forward(self, hidden_states, attribute_hidden_states, abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V,
-                 attention_mask, timeline_mask, output_all_encoded_layers=True):
+                 attention_mask, same_time_mask, timeline_mask, output_all_encoded_layers=True):
         """
         Args:
             hidden_states (torch.Tensor): the input of the TransformerEncoder
@@ -523,7 +523,7 @@ class DIFTransformerEncoderwithCTI(nn.Module):
         all_encoder_layers = []
         for layer_module in self.layer:
             hidden_states = layer_module(hidden_states, attribute_hidden_states,
-                                            abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, timeline_mask)
+                                            abs_pos_K, abs_pos_V, time_matrix_K, time_matrix_V, time_matrix_c_K, time_matrix_c_V, attention_mask, same_time_mask, timeline_mask)
             if output_all_encoded_layers:
                 all_encoder_layers.append(hidden_states)
         if not output_all_encoded_layers:

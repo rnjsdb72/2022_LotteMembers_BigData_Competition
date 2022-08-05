@@ -40,7 +40,9 @@ def train(model, optimizer, criterion, scheduler, sampler, dataset, f, num_batch
         for step in pbar:
             u, seq, time_seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg = sampler.next_batch() # tuples to ndarray
             u, seq, pos, neg = np.array(u), np.array(seq), np.array(pos), np.array(neg)
-            if args.model.name == "TiSASRec":
+            if args.model.name == "SASRec":
+                time_matrix = np.array(time_matrix)
+            elif args.model.name == "TiSASRec":
                 time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
             elif args.model.name == "TiSASReconlyCTI":
                 time_seq, time_matrix = np.array(time_seq), np.array(time_matrix_c)
@@ -54,7 +56,7 @@ def train(model, optimizer, criterion, scheduler, sampler, dataset, f, num_batch
             if (args.model.name == "TiSASRec" or args.model.name == "TiSASReconlyCTI"):
                 pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
             elif args.model.name == "SASRec":
-                pos_logits, neg_logits = model(u, seq, pos, neg)
+                pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
             elif args.model.name == "TiSASRecwithAux":
                 pos_logits, neg_logits = model(u, seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, pos, neg)
             elif args.model.name == "TiSASRecwithCTI":
@@ -179,7 +181,7 @@ def evaluate(model, loader, dataset, args):
     for u in pbar:
         u, seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx = loader[u]
         if args.model.name == "SASRec":
-            predictions = -model.predict(*[np.array(l) for l in [u, seq, item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, item_idx]])
         elif args.model.name == "TiSASRec":
             predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, item_idx]])
         elif args.model.name == "TiSASReconlyCTI":
@@ -215,7 +217,7 @@ def evaluate_valid(model, loader, dataset, args):
         u, seq, time_matrix, time_matrix_c, buy_am, clac_hlv_nm, clac_mcls_nm, cop_c, chnl_dv, de_dt_month, ma_fem_dv, ages, zon_hlv, item_idx = loader[u]
 
         if args.model.name == "SASRec":
-            predictions = -model.predict(*[np.array(l) for l in [u, seq, item_idx]])
+            predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, item_idx]])
         elif args.model.name == "TiSASRec":
             predictions = -model.predict(*[np.array(l) for l in [u, seq, time_matrix, item_idx]])
         elif args.model.name == "TiSASReconlyCTI":
