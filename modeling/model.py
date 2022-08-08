@@ -725,7 +725,7 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             if self.fusion_type_final == "sum":
                 output = output_items + output_useraux
                 output_shape = output_items.shape
-                output = nn.Linear(output_shape[0], output_shape[0])(output)
+                output = nn.Linear(output_shape[0], output_shape[0]).to(self.dev)(output)
             elif self.fusion_type_final == "concat":
                 output = torch.cat([output_items, output_useraux], dim=-1)
                 output_shape = output_items.shape
