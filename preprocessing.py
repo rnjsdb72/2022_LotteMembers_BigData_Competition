@@ -5,9 +5,8 @@ import joblib
 import argparse
 from sklearn.preprocessing import RobustScaler
 
-def make_df(prod, serv, cust, prod_info, scaler):
+def make_df(prod, serv, cust, prod_info):
     lst = ['cust', 'rct_no', 'cop_c', 'chnl_dv', 'de_dt', 'de_hr', 'buy_am']
-    prod['pd_c'] = prod[['cop_c', 'pd_c']].apply(lambda x: '_'.join(x), axis=1)
 
     prod['buy_am'] = prod['buy_am'] / prod['buy_ct']
     trans = pd.concat([prod[lst+['pd_c']], serv[lst]])
@@ -27,6 +26,8 @@ def make_df(prod, serv, cust, prod_info, scaler):
 
     trans = trans.sort_values(by=['cust','de_dt' , 'de_hr']).reset_index(drop = True )
 
+    trans['pd_c'] = trans[['cop_c', 'pd_c']].apply(lambda x: '_'.join(x), axis=1)
+
     lst2 = ['cust','pd_c','timestamp','buy_am','clac_hlv_nm','clac_mcls_nm','pd_nm','chnl_dv','de_dt_month','ma_fem_dv','ages','zon_hlv']
     trans = trans[lst2]
 
@@ -39,7 +40,7 @@ def make_df(prod, serv, cust, prod_info, scaler):
         if not os.path.exists('./models'):
             os.mkdir('./models')
         joblib.dump(transformer, 'models/RobustScaler.pkl')
-    
+
     ids = []
     for i in lst2[:2] + lst2[4:] : 
         id2 = dict(enumerate(sorted(trans[i].unique())))
@@ -48,7 +49,7 @@ def make_df(prod, serv, cust, prod_info, scaler):
         trans[i] = trans[i].map(lambda x: id2[x]+1)
     
     trans = trans.sort_values(by=['cust', 'timestamp'] ,ascending=True)
-
+    
     if not os.path.exists("./data"):
         os.makedirs("./data")
     joblib.dump(ids, "data/id2cat_cols.pkl")
