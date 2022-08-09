@@ -5,7 +5,7 @@ import joblib
 import argparse
 from sklearn.preprocessing import RobustScaler
 
-def make_df(prod, serv, cust, prod_info):
+def make_df(prod, serv, cust, prod_info, scaler):
     lst = ['cust', 'rct_no', 'cop_c', 'chnl_dv', 'de_dt', 'de_hr', 'buy_am']
 
     prod['buy_am'] = prod['buy_am'] / prod['buy_ct']
