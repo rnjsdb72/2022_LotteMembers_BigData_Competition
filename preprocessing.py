@@ -28,7 +28,7 @@ def make_df(prod, serv, cust, prod_info, scaler):
 
     trans['pd_c'] = trans[['cop_c', 'pd_c']].apply(lambda x: '_'.join(x), axis=1)
 
-    lst2 = ['cust','pd_c','timestamp','buy_am','clac_hlv_nm','clac_mcls_nm','pd_nm','chnl_dv','de_dt_month','ma_fem_dv','ages','zon_hlv']
+    lst2 = ['cust','pd_c','timestamp','buy_am','clac_hlv_nm','clac_mcls_nm','cop_c','chnl_dv','de_dt_month','ma_fem_dv','ages','zon_hlv']
     trans = trans[lst2]
 
     if scaler != None:
@@ -52,7 +52,7 @@ def make_df(prod, serv, cust, prod_info, scaler):
     
     if not os.path.exists("./data"):
         os.makedirs("./data")
-    joblib.dump(ids, "data/id2cat_cols.pkl")
+    joblib.dump(ids, "./data/id2cat_cols.pkl")
     trans.drop_duplicates(inplace = True)
     trans.to_csv("./data/lpay_rec_dataset.txt", header = False, index = False, sep = "\t")
     print('Save Complete!')
