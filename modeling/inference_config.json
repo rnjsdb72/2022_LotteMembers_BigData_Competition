@@ -1,13 +1,13 @@
 {
     "seed":0,
     "dataset": "lpay_rec_dataset",
-    "train_dir": "SASRec",
+    "date":"2022-01-01 01:00:00",
 
-    "model": {"name": "SASRec",
+    "model": {"name": "TiSASRecwithAux",
               "args": {"hidden_units": 64,
                        "dropout_rate": 0.5,
                        "time_span": 2664,
-                       "maxlen": 50,
+                       "maxlen": 110,
                        "num_blocks": 2,
                        "num_heads": 2,
                        "seq_attr_hidden_units":64,
@@ -24,7 +24,7 @@
               "aux_info": {
                     "buy_am": true, 
                     "clac_hlv_nm": true, 
-                    "clac_mcls_nm": true, 
+                    "clac_mcls_nm": false, 
                     "cop_c": true,
                     "chnl_dv": true, 
                     "user_id": true, 
