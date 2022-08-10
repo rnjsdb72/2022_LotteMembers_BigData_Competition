@@ -1,6 +1,7 @@
 {
     "seed":0,
     "dataset": "lpay_rec_dataset",
+    "train_dir": "test1",
     "date":"2022-01-01 01:00:00",
 
     "model": {"name": "TiSASRecwithAux",
@@ -38,5 +39,5 @@
 
     "topk":3,
     "device": "cpu",
-    "state_dict_path": null
+    "state_dict_path": "/Users/kwon-yujin/Desktop/LPoint/models/lpay_rec_dataset_TiSASRecwithAux_No_mcls/results/TiSASRecwithAux.total_epoch=100.lr=0.001.layer=2.head=2.hidden=64.maxlen=110.seq_attr_hidden_units=64.user_attr_emb_size=64.num_layers_user_aux=2.inner_size=256.fusion_type_item=sum.fusion_type_final=sum.epoch=94.validation=True.pth"
 }
