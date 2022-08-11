@@ -522,12 +522,13 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         buy_am_n_chnl_dv_input_dim = int(args.model.aux_info.buy_am) + int(args.model.aux_info.chnl_dv)
         self.buy_am_n_chnl_dv_Q = torch.nn.Linear(buy_am_n_chnl_dv_input_dim, args.model.args.seq_attr_hidden_units)
         self.buy_am_n_chnl_dv_K = torch.nn.Linear(buy_am_n_chnl_dv_input_dim, args.model.args.seq_attr_hidden_units)
+        self.de_dt_month_Q_emb = torch.nn.Embedding(13, args.model.args.seq_attr_hidden_units)
+        self.de_dt_month_K_emb = torch.nn.Embedding(13, args.model.args.seq_attr_hidden_units)
 
         self.user_emb = torch.nn.Embedding(self.user_num+1, args.model.args.user_attr_emb_size)
         self.ma_fem_dv_emb = torch.nn.Embedding(3, args.model.args.user_attr_emb_size)
         self.ages_emb = torch.nn.Embedding(7, args.model.args.user_attr_emb_size)
         self.zon_hlv_emb = torch.nn.Embedding(18, args.model.args.user_attr_emb_size)
-        self.de_dt_month_emb = torch.nn.Embedding(13, args.model.args.user_attr_emb_size)
 
         self.item_emb_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.abs_pos_K_emb_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
@@ -545,17 +546,18 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
         self.cop_c_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.buy_am_n_chnl_dv_Q_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.buy_am_n_chnl_dv_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
+        self.de_dt_month_Q_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
+        self.de_dt_month_K_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
 
         self.user_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.ma_fem_dv_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.ages_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
         self.zon_hlv_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
-        self.de_dt_month_dropout = torch.nn.Dropout(p=args.model.args.dropout_rate)
 
         self.last_layernorm = torch.nn.LayerNorm(args.model.args.hidden_units, eps=1e-8)
 
         self.seq_feat_num = int((self.args.model.aux_info.buy_am) or (self.args.model.aux_info.chnl_dv)) + int(self.args.model.aux_info.clac_hlv_nm) +\
-                             int(self.args.model.aux_info.clac_mcls_nm) + int(self.args.model.aux_info.cop_c)
+                             int(self.args.model.aux_info.clac_mcls_nm) + int(self.args.model.aux_info.cop_c) + int(self.args.model.aux_info.de_dt_month)
         self.trm_encoder = DIFTransformerEncoderwithCTI(
             n_layers = args.model.args.num_blocks,
             n_heads = args.model.args.num_heads,
@@ -571,8 +573,8 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             max_len = args.model.args.maxlen
         )
 
-        self.num_user_aux = int(self.args.model.aux_info.user_id) + int(self.args.model.aux_info.de_dt_month) +\
-             int(self.args.model.aux_info.ma_fem_dv) + int(self.args.model.aux_info.ages) + int(self.args.model.aux_info.zon_hlv)
+        self.num_user_aux = int(self.args.model.aux_info.user_id) + int(self.args.model.aux_info.ma_fem_dv) +\
+             int(self.args.model.aux_info.ages) + int(self.args.model.aux_info.zon_hlv)
         self.userMLP = MLPUserAux(
             user_attr_emb_size = args.model.args.user_attr_emb_size,
             num_user_aux = self.num_user_aux, 
@@ -661,6 +663,14 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             cop_c_attr = torch.stack([cop_c_Q_, cop_c_K_])
             feature_table.append(cop_c_attr)
 
+        if (self.args.model.aux_info.de_dt_month == True):
+            de_dt_month_Q_ = self.de_dt_month_Q_emb(torch.LongTensor(de_dt_month).to(self.dev))
+            de_dt_month_K_ = self.de_dt_month_K_emb(torch.LongTensor(de_dt_month).to(self.dev))
+            de_dt_month_Q_ = self.de_dt_month_Q_dropout(de_dt_month_Q_)
+            de_dt_month_K_ = self.de_dt_month_K_dropout(de_dt_month_K_)
+            de_dt_month_attr = torch.stack([de_dt_month_Q_, de_dt_month_K_])
+            feature_table.append(de_dt_month_attr)
+
         if (self.args.model.aux_info.buy_am == True) & (self.args.model.aux_info.chnl_dv == True):
             am_chnl = np.concatenate([buy_am.reshape(-1, self.maxlen, 1), chnl_dv.reshape(-1, self.maxlen, 1)], axis=-1)
         elif (self.args.model.aux_info.buy_am == True) & (self.args.model.aux_info.chnl_dv == False):
@@ -694,10 +704,6 @@ class TiSASRecwithAux(torch.nn.Module): # similar to torch.nn.MultiheadAttention
             user = self.user_emb(torch.LongTensor(user).to(self.dev))
             user = self.user_dropout(user)
             aux_table.append(user)
-        if self.args.model.aux_info.de_dt_month:
-            de_dt_month = self.de_dt_month_emb(torch.LongTensor(de_dt_month[:,-1]).to(self.dev))
-            de_dt_month = self.de_dt_month_dropout(de_dt_month)
-            aux_table.append(de_dt_month)
         if self.args.model.aux_info.ma_fem_dv:
             ma_fem_dv = self.ma_fem_dv_emb(torch.LongTensor(ma_fem_dv[:,-1]).to(self.dev))
             ma_fem_dv = self.ma_fem_dv_dropout(ma_fem_dv)

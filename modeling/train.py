@@ -92,7 +92,8 @@ def train(model, optimizer, criterion, scheduler, sampler, dataset, f, num_batch
                 for param in model.ma_fem_dv_emb.parameters(): loss += args.l2_emb * torch.norm(param)
                 for param in model.ages_emb.parameters(): loss += args.l2_emb * torch.norm(param)
                 for param in model.zon_hlv_emb.parameters(): loss += args.l2_emb * torch.norm(param)
-                for param in model.de_dt_month_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.de_dt_month_Q_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+                for param in model.de_dt_month_K_emb.parameters(): loss += args.l2_emb * torch.norm(param)
 
             loss.backward()
             optimizer.step()
