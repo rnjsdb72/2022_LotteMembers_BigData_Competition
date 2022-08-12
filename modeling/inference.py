@@ -22,8 +22,7 @@ def inference(model, dataset, args):
     results = []
     for u in pbar:
         seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
-        if args.model.name != "SASRec":
-            time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
+        time_seq = np.zeros([args.model.args.maxlen], dtype=np.int32)
         if args.model.name == "TiSASRecwithAux":
             buy_am = np.zeros([args.model.args.maxlen], dtype=np.int32)
             clac_hlv_nm = np.zeros([args.model.args.maxlen], dtype=np.int32)
@@ -38,8 +37,7 @@ def inference(model, dataset, args):
 
         for i in reversed(dataset[u]):
             seq[idx] = i[0]
-            if args.model.name != "SASRec":
-                time_seq[idx] = i[1]
+            time_seq[idx] = i[1]
             if args.model.name == "TiSASRecwithAux":
                 buy_am[idx] = i[2]
                 clac_hlv_nm[idx] = i[3]
@@ -83,9 +81,9 @@ def main():
     dataset_, usernum, itemnum, timenum = dataset
     model_module = getattr(import_module("model"), args.model.name)
     if args.model.name != 'SASRec':
-        model = model_module(usernum, itemnum, itemnum, args).to(args.device)
+        model = model_module(26256, 4835, 4835, args).to(args.device)
     else:
-        model = model_module(usernum, itemnum, args).to(args.device)
+        model = model_module(26256, 4835, args).to(args.device)
     if args.state_dict_path is not None:
         #try:
             model.load_state_dict(torch.load(args.state_dict_path, map_location=torch.device(args.device)))
