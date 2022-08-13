@@ -1,0 +1,51 @@
+{
+    "seed":0,
+    "dataset": "lpay_rec_dataset",
+    "train_dir": "TiSASRecwithCTI_maxlen_test",
+    "batch_size": 64,
+    "validation":true,
+
+    "optimizer": {"name": "Adam",
+                  "args": {"lr": 0.001}},
+    "criterion": {"name": "BCEWithLogitsLoss",
+                  "args": {}},
+    "model": {"name": "TiSASRecwithCTI",
+              "args": {"hidden_units": 64,
+                       "dropout_rate": 0.5,
+                       "time_span": 2664,
+                       "maxlen": 200,
+                       "num_blocks": 2,
+                       "num_heads": 2,
+                       "seq_attr_hidden_units":64,
+                       "user_attr_emb_size":64,
+                       "num_layers_user_aux":2,
+                       "seq_feat_num":1,
+                       "inner_size":256,
+                       "attn_dropout_rate":0.5,
+                       "hidden_act":"relu",
+                       "layer_norm_eps":1e-12,
+                       "fusion_type_item":"sum",
+                       "fusion_type_final":"sum"
+                       },
+              "aux_info": {
+                    "buy_am": true, 
+                    "clac_hlv_nm": true, 
+                    "clac_mcls_nm": true, 
+                    "cop_c": true,
+                    "chnl_dv": true, 
+                    "user_id": true, 
+                    "de_dt_month": true, 
+                    "ma_fem_dv": true, 
+                    "ages": true, 
+                    "zon_hlv": true
+              }},
+    
+    "l2_emb": 0.00005,
+
+    "topk":3,
+    "num_epochs": 100,
+    "device": "cpu",
+    "inference_only": false,
+    "state_dict_path": null,
+    "log_interval": 1
+}
