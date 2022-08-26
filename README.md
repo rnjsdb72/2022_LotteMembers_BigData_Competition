@@ -1,3 +1,6 @@
+## Model
+<img src='img/그림1.png'>
+
 #### crawling.py
 
 - 희망하는 검색어 관련 네이버 카페, 블로그 게시글 크롤링
